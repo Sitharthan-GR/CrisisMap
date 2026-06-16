@@ -1,0 +1,50 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  html,
+  body,
+  #root {
+    @apply h-full;
+  }
+
+  body {
+    @apply bg-surface font-sans text-slate-100 antialiased;
+  }
+
+  [dir="rtl"] body {
+    font-family: "Noto Sans Arabic", "DM Sans", system-ui, sans-serif;
+  }
+
+  [dir="rtl"] .rtl-flip {
+    transform: scaleX(-1);
+  }
+}
+
+.leaflet-container {
+  font-family: inherit;
+  background: #0f1419;
+}
+
+.leaflet-popup-content-wrapper {
+  @apply rounded-lg border border-surface-border bg-surface-raised text-slate-100 shadow-panel;
+}
+
+.leaflet-popup-content {
+  margin: 10px 12px;
+  min-width: 220px;
+  max-width: 300px;
+}
+
+.leaflet-popup-tip {
+  @apply bg-surface-raised;
+}
+
+.leaflet-control-zoom a {
+  @apply border-surface-border bg-surface-raised text-slate-200;
+}
+
+.leaflet-control-zoom a:hover {
+  @apply bg-surface-border;
+}

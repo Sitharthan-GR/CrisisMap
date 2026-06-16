@@ -1,6 +1,7 @@
 from typing import Any
 
 from fastapi import Request, status
+from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 
@@ -12,7 +13,7 @@ class AppError(Exception):
         message: str,
         *,
         status_code: int = status.HTTP_500_INTERNAL_SERVER_ERROR,
-        code: str = "internal_error",
+        code: str = "INTERNAL_ERROR",
         details: dict[str, Any] | None = None,
     ) -> None:
         self.message = message
@@ -30,7 +31,7 @@ class SupabaseError(AppError):
         message: str,
         *,
         status_code: int = status.HTTP_502_BAD_GATEWAY,
-        code: str = "supabase_error",
+        code: str = "SUPABASE_ERROR",
         details: dict[str, Any] | None = None,
     ) -> None:
         super().__init__(message, status_code=status_code, code=code, details=details)
@@ -38,20 +39,57 @@ class SupabaseError(AppError):
 
 class NotFoundError(AppError):
     def __init__(self, message: str = "Resource not found") -> None:
-        super().__init__(message, status_code=status.HTTP_404_NOT_FOUND, code="not_found")
+        super().__init__(message, status_code=status.HTTP_404_NOT_FOUND, code="NOT_FOUND")
+
+
+class ValidationError(AppError):
+    def __init__(self, message: str) -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_400_BAD_REQUEST,
+            code="VALIDATION_ERROR",
+        )
+
+
+class CrisisClosedError(AppError):
+    def __init__(self, message: str = "Report submitted to a closed crisis") -> None:
+        super().__init__(message, status_code=status.HTTP_400_BAD_REQUEST, code="CRISIS_CLOSED")
+
+
+class GeocodeError(AppError):
+    def __init__(self, message: str = "Geocoding failed") -> None:
+        super().__init__(message, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, code="GEOCODE_ERROR")
+
+
+class StorageError(AppError):
+    def __init__(self, message: str = "Storage operation failed") -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            code="STORAGE_ERROR",
+        )
+
+
+def error_response(code: str, message: str, status_code: int) -> JSONResponse:
+    return JSONResponse(
+        status_code=status_code,
+        content={"data": None, "error": {"code": code, "message": message}},
+    )
 
 
 async def app_error_handler(_request: Request, exc: AppError) -> JSONResponse:
-    return JSONResponse(
-        status_code=exc.status_code,
-        content={
-            "error": {
-                "code": exc.code,
-                "message": exc.message,
-                "details": exc.details,
-            }
-        },
-    )
+    return error_response(exc.code, exc.message, exc.status_code)
+
+
+async def validation_exception_handler(
+    _request: Request, exc: RequestValidationError
+) -> JSONResponse:
+    first = exc.errors()[0] if exc.errors() else {}
+    field = ".".join(str(part) for part in first.get("loc", []) if part != "body")
+    message = first.get("msg", "Invalid request")
+    if field:
+        message = f"{field}: {message}"
+    return error_response("VALIDATION_ERROR", message, status.HTTP_400_BAD_REQUEST)
 
 
 async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -63,13 +101,8 @@ async def unhandled_exception_handler(request: Request, exc: Exception) -> JSONR
         path=request.url.path,
         method=request.method,
     )
-    return JSONResponse(
-        status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-        content={
-            "error": {
-                "code": "internal_error",
-                "message": "An unexpected error occurred.",
-                "details": {},
-            }
-        },
+    return error_response(
+        "INTERNAL_ERROR",
+        "An unexpected error occurred.",
+        status.HTTP_500_INTERNAL_SERVER_ERROR,
     )

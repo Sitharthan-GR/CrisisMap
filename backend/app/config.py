@@ -33,7 +33,17 @@ class Settings(BaseSettings):
     supabase_service_role_key: SecretStr
     supabase_anon_key: SecretStr | None = None
 
-    supabase_nearby_crisis_rpc: str = "get_nearby_crisis_records"
+    supabase_storage_bucket: str = "rapida-photos"
+    supabase_signed_url_expiry: int = 3600
+    supabase_upload_url_expiry: int = 300
+
+    nominatim_base_url: str = "https://nominatim.openstreetmap.org"
+    nominatim_user_agent: str = "CrisisMap/0.1 (rapida-prototype)"
+
+    what3words_api_key: str | None = None
+    what3words_api_url: str = "https://api.what3words.com/v3"
+
+    location_match_tolerance_meters: float = 5.0
 
     @field_validator("supabase_url", mode="before")
     @classmethod

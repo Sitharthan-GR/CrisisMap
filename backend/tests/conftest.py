@@ -26,17 +26,10 @@ def clear_settings_cache() -> Generator[None, None, None]:
 @pytest.fixture
 def mock_supabase() -> AsyncMock:
     client = AsyncMock(spec=SupabaseClient)
-    client.rpc.return_value = [
-        {
-            "id": "test-uuid",
-            "title": "Road blocked by flood",
-            "crisis_type": "flood",
-            "severity": "high",
-            "latitude": 35.9606,
-            "longitude": -83.9207,
-            "distance_meters": 1200,
-        }
-    ]
+    client.rpc.return_value = []
+    client.select.return_value = ([], 0)
+    client.select_one.return_value = None
+    client.insert.return_value = {}
     client.health_check.return_value = True
     return client
 

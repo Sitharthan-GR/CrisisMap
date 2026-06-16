@@ -1,60 +1,40 @@
-from typing import Any
+from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, Field
 
 
-class NearbyCrisisQuery(BaseModel):
-    """Query params for get_nearby_crisis_records Supabase RPC."""
-
-    user_lat: float = Field(..., ge=-90, le=90, description="User latitude")
-    user_lng: float = Field(..., ge=-180, le=180, description="User longitude")
-    radius_meters: float = Field(
-        ...,
-        gt=0,
-        le=500_000,
-        description="Search radius in meters",
-    )
-
-    def to_rpc_params(self) -> dict[str, float]:
-        return {
-            "user_lat": self.user_lat,
-            "user_lng": self.user_lng,
-            "radius_meters": self.radius_meters,
-        }
+CrisisType = Literal["natural_hazard", "technological", "human_made"]
+CrisisStatus = Literal["active", "closed"]
 
 
-class CrisisRecord(BaseModel):
-    """Crisis row returned by Supabase (fields vary by your function)."""
-
-    id: str | int | None = None
-    title: str | None = None
-    description: str | None = None
-    crisis_type: str | None = None
-    severity: str | None = None
-    latitude: float | None = None
-    longitude: float | None = None
-    address_text: str | None = None
-    city: str | None = None
-    state: str | None = None
-    country: str | None = None
-    postal_code: str | None = None
-    distance_meters: float | None = None
-    created_at: str | None = None
-
-    model_config = {"extra": "allow"}
+class CrisisCreate(BaseModel):
+    name: str = Field(..., max_length=200)
+    crisis_type: CrisisType
+    crisis_subtype: str = Field(..., max_length=50)
+    epicenter_lat: float | None = None
+    epicenter_lng: float | None = None
+    onset_at: datetime
 
 
-class NearbyCrisisResponse(BaseModel):
-    records: list[CrisisRecord]
-    count: int
+class CrisisUpdate(BaseModel):
+    name: str | None = Field(default=None, max_length=200)
+    status: CrisisStatus | None = None
 
 
-def parse_rpc_records(data: Any) -> list[CrisisRecord]:
-    """Normalize Supabase RPC return value into a list of records."""
-    if data is None:
-        return []
-    if isinstance(data, list):
-        return [CrisisRecord.model_validate(row) for row in data]
-    if isinstance(data, dict):
-        return [CrisisRecord.model_validate(data)]
-    return []
+class CrisisOut(BaseModel):
+    id: str
+    name: str
+    crisis_type: CrisisType
+    crisis_subtype: str
+    epicenter_lat: float | None = None
+    epicenter_lng: float | None = None
+    status: CrisisStatus
+    onset_at: datetime
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
+
+
+class CrisisListQuery(BaseModel):
+    status: CrisisStatus = "active"

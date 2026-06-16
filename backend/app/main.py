@@ -2,12 +2,18 @@ from contextlib import asynccontextmanager
 from collections.abc import AsyncIterator
 
 from fastapi import FastAPI
+from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.middleware.gzip import GZipMiddleware
 
 from app.api.v1.router import api_router
 from app.config import get_settings
-from app.core.exceptions import AppError, app_error_handler, unhandled_exception_handler
+from app.core.exceptions import (
+    AppError,
+    app_error_handler,
+    unhandled_exception_handler,
+    validation_exception_handler,
+)
 from app.core.logging import setup_logging
 from app.core.middleware import RequestContextMiddleware
 from app.services.supabase import SupabaseClient
@@ -50,6 +56,7 @@ def create_app() -> FastAPI:
     )
 
     app.add_exception_handler(AppError, app_error_handler)  # type: ignore[arg-type]
+    app.add_exception_handler(RequestValidationError, validation_exception_handler)  # type: ignore[arg-type]
     app.add_exception_handler(Exception, unhandled_exception_handler)
 
     app.include_router(api_router, prefix=settings.api_v1_prefix)

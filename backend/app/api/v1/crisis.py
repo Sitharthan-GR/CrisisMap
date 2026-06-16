@@ -2,51 +2,44 @@ import structlog
 from fastapi import APIRouter, Depends, status
 
 from app.dependencies import SettingsDep, SupabaseDep
-from app.schemas.crisis import NearbyCrisisQuery, NearbyCrisisResponse, parse_rpc_records
+from app.schemas.common import success
+from app.schemas.crisis import CrisisCreate, CrisisListQuery, CrisisUpdate
+from app.services import crisis as crisis_service
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/crises", tags=["crises"])
 
 
-@router.get(
-    "/nearby",
-    response_model=NearbyCrisisResponse,
-    status_code=status.HTTP_200_OK,
-    summary="Get nearby crisis records",
-    description=(
-        "Calls Supabase RPC `get_nearby_crisis_records` with user location "
-        "and search radius."
-    ),
-)
-async def get_nearby_crises(
+@router.post("", status_code=status.HTTP_201_CREATED)
+async def create_crisis(
+    payload: CrisisCreate,
     supabase: SupabaseDep,
-    settings: SettingsDep,
-    query: NearbyCrisisQuery = Depends(),
-) -> NearbyCrisisResponse:
-    """
-    Fetch crisis records near a location.
+) -> dict:
+    data = await crisis_service.create_crisis(supabase, payload)
+    return success(data.model_dump(mode="json"))
 
-    Equivalent to:
-    ```js
-    supabase.rpc('get_nearby_crisis_records', {
-      user_lat: 35.9606,
-      user_lng: -83.9207,
-      radius_meters: 10000
-    })
-    ```
-    """
-    logger.info(
-        "get_nearby_crises_requested",
-        user_lat=query.user_lat,
-        user_lng=query.user_lng,
-        radius_meters=query.radius_meters,
-    )
 
-    data = await supabase.rpc(
-        settings.supabase_nearby_crisis_rpc,
-        query.to_rpc_params(),
-    )
-    records = parse_rpc_records(data)
+@router.get("")
+async def list_crises(
+    supabase: SupabaseDep,
+    query: CrisisListQuery = Depends(),
+) -> dict:
+    crises = await crisis_service.list_crises(supabase, query)
+    return success([item.model_dump(mode="json") for item in crises])
 
-    return NearbyCrisisResponse(records=records, count=len(records))
+
+@router.get("/{crisis_id}")
+async def get_crisis(crisis_id: str, supabase: SupabaseDep) -> dict:
+    data = await crisis_service.get_crisis(supabase, crisis_id)
+    return success(data.model_dump(mode="json"))
+
+
+@router.patch("/{crisis_id}")
+async def update_crisis(
+    crisis_id: str,
+    payload: CrisisUpdate,
+    supabase: SupabaseDep,
+) -> dict:
+    data = await crisis_service.update_crisis(supabase, crisis_id, payload)
+    return success(data.model_dump(mode="json"))
