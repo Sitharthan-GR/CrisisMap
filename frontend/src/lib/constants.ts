@@ -16,3 +16,5 @@ export const RADIUS_OPTIONS = [
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 
 export const REPORTER_NAME_STORAGE_KEY = "rapida_reporter_name";
+
+export const ADMIN_TOKEN_STORAGE_KEY = "rapida_admin_token";

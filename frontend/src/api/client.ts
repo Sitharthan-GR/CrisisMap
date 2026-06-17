@@ -12,6 +12,7 @@ import type {
   ReportCreateInput,
   ReportDetail,
   ReportVersion,
+  ReportingOptions,
 } from "../types/report";
 
 export interface BuildingBbox {
@@ -57,6 +58,135 @@ async function parseApiResponse<T>(response: Response): Promise<T> {
   return body.data;
 }
 
+function adminHeaders(token: string): HeadersInit {
+  return {
+    Authorization: `Bearer ${token}`,
+    "Content-Type": "application/json",
+  };
+}
+
+export async function adminLogin(
+  password: string,
+  signal?: AbortSignal,
+): Promise<{ token: string; expires_in: number }> {
+  const response = await fetch(`${API_BASE_URL}/admin/login`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ password }),
+    signal,
+  });
+  return parseApiResponse<{ token: string; expires_in: number }>(response);
+}
+
+export interface AdminCrisisCreateInput {
+  name: string;
+  crisis_type: Crisis["crisis_type"];
+  crisis_subtype: string;
+  onset_at: string;
+  epicenter_lat?: number;
+  epicenter_lng?: number;
+}
+
+export async function adminFetchCrises(
+  token: string,
+  signal?: AbortSignal,
+): Promise<Crisis[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/crises`, {
+    headers: adminHeaders(token),
+    signal,
+  });
+  return parseApiResponse<Crisis[]>(response);
+}
+
+export async function adminCreateCrisis(
+  token: string,
+  payload: AdminCrisisCreateInput,
+  signal?: AbortSignal,
+): Promise<Crisis> {
+  const response = await fetch(`${API_BASE_URL}/admin/crises`, {
+    method: "POST",
+    headers: adminHeaders(token),
+    body: JSON.stringify(payload),
+    signal,
+  });
+  return parseApiResponse<Crisis>(response);
+}
+
+export async function adminUpdateCrisis(
+  token: string,
+  crisisId: string,
+  payload: { name?: string; status?: Crisis["status"] },
+  signal?: AbortSignal,
+): Promise<Crisis> {
+  const response = await fetch(`${API_BASE_URL}/admin/crises/${crisisId}`, {
+    method: "PATCH",
+    headers: adminHeaders(token),
+    body: JSON.stringify(payload),
+    signal,
+  });
+  return parseApiResponse<Crisis>(response);
+}
+
+export async function adminFetchUnlistedReports(
+  token: string,
+  signal?: AbortSignal,
+): Promise<ReportDetail[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/reports/unlisted`, {
+    headers: adminHeaders(token),
+    signal,
+  });
+  return parseApiResponse<ReportDetail[]>(response);
+}
+
+export async function adminAssignUnlistedReport(
+  token: string,
+  reportId: string,
+  crisisId: string,
+  signal?: AbortSignal,
+): Promise<{ report: Report; crisis: Crisis }> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/reports/${reportId}/assign`,
+    {
+      method: "POST",
+      headers: adminHeaders(token),
+      body: JSON.stringify({ crisis_id: crisisId }),
+      signal,
+    },
+  );
+  return parseApiResponse<{ report: Report; crisis: Crisis }>(response);
+}
+
+export async function adminCreateCrisisFromReport(
+  token: string,
+  reportId: string,
+  payload: AdminCrisisCreateInput,
+  signal?: AbortSignal,
+): Promise<{ report: Report; crisis: Crisis }> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/reports/${reportId}/create-crisis`,
+    {
+      method: "POST",
+      headers: adminHeaders(token),
+      body: JSON.stringify(payload),
+      signal,
+    },
+  );
+  return parseApiResponse<{ report: Report; crisis: Crisis }>(response);
+}
+
+export async function adminDeleteUnlistedReport(
+  token: string,
+  reportId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(`${API_BASE_URL}/admin/reports/${reportId}`, {
+    method: "DELETE",
+    headers: adminHeaders(token),
+    signal,
+  });
+  await parseApiResponse<{ deleted: boolean }>(response);
+}
+
 export async function fetchActiveCrises(
   signal?: AbortSignal,
 ): Promise<Crisis[]> {
@@ -64,6 +194,23 @@ export async function fetchActiveCrises(
     signal,
   });
   return parseApiResponse<Crisis[]>(response);
+}
+
+export async function fetchReportingOptions(
+  coords?: { lat: number; lng: number },
+  signal?: AbortSignal,
+): Promise<ReportingOptions> {
+  const params = new URLSearchParams();
+  if (coords) {
+    params.set("lat", String(coords.lat));
+    params.set("lng", String(coords.lng));
+  }
+  const query = params.toString();
+  const response = await fetch(
+    `${API_BASE_URL}/crises/reporting-options${query ? `?${query}` : ""}`,
+    { signal },
+  );
+  return parseApiResponse<ReportingOptions>(response);
 }
 
 export async function fetchCrisisMap(

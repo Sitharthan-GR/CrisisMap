@@ -1,11 +1,11 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Any
 
 import structlog
 
-from app.config import Settings
 from app.core.exceptions import CrisisClosedError, NotFoundError, ValidationError
-from app.schemas.crisis import CrisisCreate, CrisisListQuery, CrisisOut, CrisisStatus, CrisisUpdate
+from app.schemas.crisis import CrisisCreate, CrisisListQuery, CrisisOut, CrisisStatus, CrisisUpdate, ReportingOptionsOut
+from app.services.geocoding import haversine_meters
 from app.services.supabase import SupabaseClient
 
 logger = structlog.get_logger(__name__)
@@ -26,6 +26,7 @@ def _row_to_crisis(row: dict[str, Any]) -> CrisisOut:
         epicenter_lat=row.get("epicenter_lat"),
         epicenter_lng=row.get("epicenter_lng"),
         status=row["status"],
+        is_unlisted=bool(row.get("is_unlisted", False)),
         onset_at=_parse_dt(row["onset_at"]),
         created_at=_parse_dt(row["created_at"]),
     )
@@ -41,6 +42,7 @@ async def create_crisis(supabase: SupabaseClient, payload: CrisisCreate) -> Cris
             "epicenter_lat": payload.epicenter_lat,
             "epicenter_lng": payload.epicenter_lng,
             "onset_at": payload.onset_at.isoformat(),
+            "is_unlisted": False,
         },
     )
     logger.info("crisis_created", crisis_id=row["id"])
@@ -50,8 +52,81 @@ async def create_crisis(supabase: SupabaseClient, payload: CrisisCreate) -> Cris
 async def list_crises(supabase: SupabaseClient, query: CrisisListQuery) -> list[CrisisOut]:
     rows, _ = await supabase.select(
         "crisis",
-        filters=[("status", f"eq.{query.status}")],
+        filters=[
+            ("status", f"eq.{query.status}"),
+            ("is_unlisted", "eq.false"),
+        ],
         order="onset_at.desc",
+    )
+    return [_row_to_crisis(row) for row in rows]
+
+
+async def list_reportable_crises(supabase: SupabaseClient) -> list[CrisisOut]:
+    return await list_crises(supabase, CrisisListQuery(status="active"))
+
+
+def nearest_crisis_id(crises: list[CrisisOut], lat: float, lng: float) -> str | None:
+    if not crises:
+        return None
+
+    best_id: str | None = None
+    best_distance = float("inf")
+    for crisis in crises:
+        if crisis.epicenter_lat is None or crisis.epicenter_lng is None:
+            continue
+        if crisis.epicenter_lat == 0 and crisis.epicenter_lng == 0:
+            continue
+        distance = haversine_meters(lat, lng, crisis.epicenter_lat, crisis.epicenter_lng)
+        if distance < best_distance:
+            best_distance = distance
+            best_id = crisis.id
+
+    return best_id or crises[0].id
+
+
+async def get_or_create_unlisted_crisis(supabase: SupabaseClient) -> CrisisOut:
+    row = await supabase.select_one("crisis", filters=[("is_unlisted", "eq.true")])
+    if row:
+        return _row_to_crisis(row)
+
+    row = await supabase.insert(
+        "crisis",
+        {
+            "name": "Unlisted",
+            "crisis_type": "human_made",
+            "crisis_subtype": "unlisted",
+            "status": "active",
+            "is_unlisted": True,
+            "onset_at": datetime.now(timezone.utc).isoformat(),
+        },
+    )
+    logger.info("unlisted_crisis_created", crisis_id=row["id"])
+    return _row_to_crisis(row)
+
+
+async def get_reporting_options(
+    supabase: SupabaseClient,
+    *,
+    lat: float | None = None,
+    lng: float | None = None,
+) -> ReportingOptionsOut:
+    crises = await list_reportable_crises(supabase)
+    unlisted = await get_or_create_unlisted_crisis(supabase)
+    nearest: str | None = None
+    if lat is not None and lng is not None:
+        nearest = nearest_crisis_id(crises, lat, lng)
+    return ReportingOptionsOut(
+        crises=crises,
+        unlisted_crisis_id=unlisted.id,
+        nearest_crisis_id=nearest,
+    )
+
+
+async def list_all_crises(supabase: SupabaseClient) -> list[CrisisOut]:
+    rows, _ = await supabase.select(
+        "crisis",
+        order="onset_at.desc",
+        limit=500,
     )
     return [_row_to_crisis(row) for row in rows]
 
@@ -78,6 +153,13 @@ async def require_active_crisis(supabase: SupabaseClient, crisis_id: str) -> Cri
     crisis = await get_crisis(supabase, crisis_id)
     if crisis.status != "active":
         raise CrisisClosedError()
+    return crisis
+
+
+async def assert_public_crisis(supabase: SupabaseClient, crisis_id: str) -> CrisisOut:
+    crisis = await get_crisis(supabase, crisis_id)
+    if crisis.is_unlisted:
+        raise NotFoundError("Crisis not found")
     return crisis
 
 

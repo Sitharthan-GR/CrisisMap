@@ -45,6 +45,9 @@ class Settings(BaseSettings):
 
     location_match_tolerance_meters: float = 5.0
 
+    admin_password: SecretStr | None = None
+    admin_token_ttl_hours: int = 24
+
     @field_validator("supabase_url", mode="before")
     @classmethod
     def normalize_supabase_url(cls, value: str) -> str:

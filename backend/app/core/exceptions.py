@@ -56,6 +56,15 @@ class CrisisClosedError(AppError):
         super().__init__(message, status_code=status.HTTP_400_BAD_REQUEST, code="CRISIS_CLOSED")
 
 
+class UnauthorizedError(AppError):
+    def __init__(self, message: str = "Admin authentication required") -> None:
+        super().__init__(
+            message,
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            code="UNAUTHORIZED",
+        )
+
+
 class GeocodeError(AppError):
     def __init__(self, message: str = "Geocoding failed") -> None:
         super().__init__(message, status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, code="GEOCODE_ERROR")

@@ -28,7 +28,7 @@ import type { LucideIcon } from "lucide-react";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useLocation } from "react-router-dom";
-import { ApiError, createReport, fetchActiveCrises, fetchReverseGeocode, searchPlaces, type PlaceSearchResult } from "../api/client";
+import { ApiError, createReport, fetchReportingOptions, fetchReverseGeocode, searchPlaces, type PlaceSearchResult } from "../api/client";
 import { autoDetectLanguageFromLocation } from "../i18n";
 import { getCurrentLocation } from "../lib/geolocation";
 import {
@@ -80,6 +80,8 @@ interface OptionCard {
   subtitle?: string;
   icon: LucideIcon;
 }
+
+const OTHER_CRISIS_VALUE = "__other__";
 
 function toIsoUtc(date: Date): string {
   return date.toISOString();
@@ -162,7 +164,9 @@ export default function CrisisReportForm() {
     | undefined;
   const [step, setStep] = useState<WizardStep>("damage");
   const [crises, setCrises] = useState<Crisis[]>([]);
-  const [crisisId, setCrisisId] = useState("");
+  const [unlistedCrisisId, setUnlistedCrisisId] = useState("");
+  const [selectedEventId, setSelectedEventId] = useState("");
+  const [nearestCrisisId, setNearestCrisisId] = useState<string | null>(null);
   const [damage, setDamage] = useState<DamageLevel | null>(null);
   const [infra, setInfra] = useState<InfraType | null>(null);
   const [nature, setNature] = useState<NatureOfCrisis | null>(null);
@@ -174,7 +178,6 @@ export default function CrisisReportForm() {
   const [placeLabel, setPlaceLabel] = useState("");
   const [locationMethod, setLocationMethod] = useState<LocationMethod>("gps");
   const [buildingFootprintId, setBuildingFootprintId] = useState<string | undefined>();
-  const [showManualLocation, setShowManualLocation] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -192,10 +195,14 @@ export default function CrisisReportForm() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const pendingPhotosRef = useRef(pendingPhotos);
   const gpsAttemptedRef = useRef(false);
+  const crisisSelectionTouchedRef = useRef(false);
   pendingPhotosRef.current = pendingPhotos;
 
+  const crisisId =
+    selectedEventId === OTHER_CRISIS_VALUE ? unlistedCrisisId : selectedEventId;
   const stepIndex = WIZARD_STEPS.indexOf(step);
-  const selectedCrisis = crises.find((c) => c.id === crisisId);
+  const selectedCrisis = crises.find((c) => c.id === selectedEventId);
+  const isOtherCrisis = selectedEventId === OTHER_CRISIS_VALUE;
 
   const damageOptions = useMemo<OptionCard[]>(
     () => [
@@ -279,6 +286,58 @@ export default function CrisisReportForm() {
     return t(`wizard.questions.${current}`);
   };
 
+  const applyReportingOptions = (
+    options: {
+      crises: Crisis[];
+      unlisted_crisis_id: string;
+      nearest_crisis_id: string | null;
+    },
+    prefillCrisisId?: string,
+  ) => {
+    setCrises(options.crises);
+    setUnlistedCrisisId(options.unlisted_crisis_id);
+    setNearestCrisisId(options.nearest_crisis_id);
+
+    if (prefillCrisisId) {
+      if (prefillCrisisId === options.unlisted_crisis_id) {
+        setSelectedEventId(OTHER_CRISIS_VALUE);
+      } else {
+        setSelectedEventId(prefillCrisisId);
+        const crisis = options.crises.find((c) => c.id === prefillCrisisId);
+        if (crisis) {
+          setNature((current) => current ?? defaultNatureFromCrisis(crisis));
+        }
+      }
+      return;
+    }
+
+    if (crisisSelectionTouchedRef.current) return;
+
+    if (options.nearest_crisis_id) {
+      setSelectedEventId(options.nearest_crisis_id);
+      const nearest = options.crises.find((c) => c.id === options.nearest_crisis_id);
+      if (nearest) {
+        setNature((current) => current ?? defaultNatureFromCrisis(nearest));
+      }
+    } else if (options.crises.length > 0) {
+      setSelectedEventId(options.crises[0].id);
+      setNature((current) => current ?? defaultNatureFromCrisis(options.crises[0]));
+    } else {
+      setSelectedEventId(OTHER_CRISIS_VALUE);
+    }
+  };
+
+  const handleEventSelect = (value: string) => {
+    crisisSelectionTouchedRef.current = true;
+    setSelectedEventId(value);
+    if (value !== OTHER_CRISIS_VALUE) {
+      const crisis = crises.find((c) => c.id === value);
+      if (crisis) {
+        setNature(defaultNatureFromCrisis(crisis));
+      }
+    }
+  };
+
   useEffect(() => {
     if (!locationPrefill) return;
     setLatitude(String(locationPrefill.latitude));
@@ -289,22 +348,14 @@ export default function CrisisReportForm() {
     setLocationStatus("detected");
     setAddressQuery(locationPrefill.placeLabel);
     gpsAttemptedRef.current = true;
-    if (locationPrefill.crisisId) {
-      setCrisisId(locationPrefill.crisisId);
-    }
   }, [locationPrefill]);
 
   useEffect(() => {
     const controller = new AbortController();
-    fetchActiveCrises(controller.signal)
-      .then((data) => {
-        setCrises(data);
-        if (data.length > 0) {
-          setCrisisId((current) => current || data[0].id);
-          setNature((current) =>
-            current ?? defaultNatureFromCrisis(data[0]),
-          );
-        }
+
+    fetchReportingOptions(undefined, controller.signal)
+      .then((options) => {
+        applyReportingOptions(options, locationPrefill?.crisisId);
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
@@ -316,7 +367,16 @@ export default function CrisisReportForm() {
       })
       .finally(() => setLoadingCrises(false));
     return () => controller.abort();
-  }, [t]);
+  }, [t, locationPrefill?.crisisId]);
+
+  const refreshNearestCrisis = (lat: number, lng: number) => {
+    if (crisisSelectionTouchedRef.current) return;
+    void fetchReportingOptions({ lat, lng })
+      .then((options) => applyReportingOptions(options))
+      .catch(() => {
+        // Non-blocking: nearest crisis hint is optional
+      });
+  };
 
   useEffect(() => {
     return () => pendingPhotosRef.current.forEach(revokePendingPhoto);
@@ -337,6 +397,7 @@ export default function CrisisReportForm() {
       } catch {
         setPlaceLabel(t("wizard.currentLocation"));
       }
+      refreshNearestCrisis(coords.latitude, coords.longitude);
     } catch {
       setLocationStatus("failed");
       setPlaceLabel("");
@@ -344,7 +405,6 @@ export default function CrisisReportForm() {
   };
 
   useEffect(() => {
-    if (!showManualLocation) return;
     const query = addressQuery.trim();
     if (query.length < 2) {
       setPlaceResults([]);
@@ -369,7 +429,7 @@ export default function CrisisReportForm() {
       window.clearTimeout(timer);
       controller.abort();
     };
-  }, [addressQuery, showManualLocation]);
+  }, [addressQuery]);
 
   const selectPlace = (place: PlaceSearchResult) => {
     setLatitude(String(place.latitude));
@@ -380,8 +440,7 @@ export default function CrisisReportForm() {
     setBuildingFootprintId(undefined);
     setAddressQuery(place.display_name);
     setPlaceResults([]);
-    setShowManualLocation(false);
-    setError(null);
+    refreshNearestCrisis(place.latitude, place.longitude);
   };
 
   const handleMapPick = (lat: number, lng: number) => {
@@ -400,26 +459,26 @@ export default function CrisisReportForm() {
       .catch(() => {
         setPlaceLabel(t("map.pickedLocation"));
       });
+    refreshNearestCrisis(lat, lng);
   };
 
   useEffect(() => {
-    if (loadingCrises || crises.length === 0 || gpsAttemptedRef.current || locationPrefill) {
+    if (loadingCrises || gpsAttemptedRef.current || locationPrefill) {
       return;
     }
     gpsAttemptedRef.current = true;
     void detectLocation();
-  }, [loadingCrises, crises.length, locationPrefill]);
+  }, [loadingCrises, locationPrefill]);
 
   const resetWizard = () => {
     pendingPhotos.forEach(revokePendingPhoto);
     setStep("damage");
     setDamage(null);
     setInfra(null);
-    setNature(crises[0] ? defaultNatureFromCrisis(crises[0]) : null);
+    setNature(null);
     setDebris(null);
     setDescription("");
     setPendingPhotos([]);
-    setShowManualLocation(false);
     setPlaceLabel("");
     setAddressQuery("");
     setPlaceResults([]);
@@ -428,6 +487,7 @@ export default function CrisisReportForm() {
     setSubmittedReport(null);
     setUploadedPhotoCount(0);
     setError(null);
+    crisisSelectionTouchedRef.current = false;
     gpsAttemptedRef.current = false;
     setLocationStatus("idle");
     void detectLocation().finally(() => {
@@ -489,7 +549,6 @@ export default function CrisisReportForm() {
     if (!latitude || !longitude) {
       setError(t("wizard.errors.locationRequired"));
       setStep("location");
-      setShowManualLocation(true);
       return;
     }
 
@@ -564,29 +623,12 @@ export default function CrisisReportForm() {
     );
   }
 
-  if (crises.length === 0) {
-    return (
-      <WizardShell crisisName={t("wizard.noActiveCrisis")}>
-        <div className="flex min-h-[280px] flex-col items-center justify-center gap-3 px-4 text-center">
-          <p className="text-sm font-medium text-amber-100">
-            {t("wizard.noActiveCrisesTitle")}
-          </p>
-          <p className="text-xs text-slate-400">
-            {t("wizard.noActiveCrisesBody")}
-          </p>
-          <Link
-            to="/"
-            className="mt-2 text-sm text-accent hover:underline"
-          >
-            {t("nav.backToDashboard")}
-          </Link>
-        </div>
-      </WizardShell>
-    );
-  }
+  const headerCrisisName = isOtherCrisis
+    ? t("wizard.crisisEventOther")
+    : selectedCrisis?.name ?? t("wizard.reportDamage");
 
   return (
-    <WizardShell crisisName={selectedCrisis?.name ?? t("wizard.reportDamage")}>
+    <WizardShell crisisName={headerCrisisName}>
       {step !== "done" && (
         <div className="flex gap-1 px-4 pt-3.5">
           {WIZARD_STEPS.map((s, i) => (
@@ -608,6 +650,38 @@ export default function CrisisReportForm() {
         <LanguageSwitcher compact />
       </div>
 
+      {step !== "done" && unlistedCrisisId && (
+        <div className="mx-4 mt-2">
+          <label className="mb-1 block text-xs text-slate-400">
+            {t("wizard.crisisEventLabel")}
+          </label>
+          <select
+            value={selectedEventId || OTHER_CRISIS_VALUE}
+            onChange={(e) => handleEventSelect(e.target.value)}
+            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
+          >
+            {crises.map((crisis) => (
+              <option key={crisis.id} value={crisis.id}>
+                {crisis.name}
+                {nearestCrisisId === crisis.id
+                  ? ` (${t("wizard.nearestCrisis")})`
+                  : ""}
+              </option>
+            ))}
+            <option value={OTHER_CRISIS_VALUE}>{t("wizard.crisisEventOther")}</option>
+          </select>
+          {isOtherCrisis ? (
+            <p className="mt-1 text-[11px] text-slate-500">
+              {t("wizard.crisisEventOtherHint")}
+            </p>
+          ) : nearestCrisisId === selectedEventId ? (
+            <p className="mt-1 text-[11px] text-slate-500">
+              {t("wizard.nearestCrisisHint")}
+            </p>
+          ) : null}
+        </div>
+      )}
+
       {error && step !== "done" && (
         <div className="mx-4 mt-3 rounded-lg border border-red-500/40 bg-red-950/50 px-3 py-2 text-xs text-red-200">
           {error}
@@ -622,7 +696,9 @@ export default function CrisisReportForm() {
               {t("wizard.doneTitle")}
             </p>
             <p className="mt-1 text-sm text-slate-400">
-              {t("wizard.doneSubtitle")}
+              {isOtherCrisis
+                ? t("wizard.doneSubtitleUnlisted")
+                : t("wizard.doneSubtitle")}
             </p>
             <div className="relative mx-auto mt-4 h-[150px] max-w-[280px] overflow-hidden rounded-lg border border-surface-border bg-[#1a2a3a]">
               <div
@@ -714,18 +790,9 @@ export default function CrisisReportForm() {
                 longitude={longitude}
                 placeLabel={placeLabel}
                 locationStatus={locationStatus}
-                locationMethod={locationMethod}
                 addressQuery={addressQuery}
                 placeResults={placeResults}
                 searchingPlaces={searchingPlaces}
-                showSearch={showManualLocation}
-                onToggleSearch={() => {
-                  setShowManualLocation((v) => !v);
-                  if (!showManualLocation) {
-                    setAddressQuery(placeLabel);
-                    setPlaceResults([]);
-                  }
-                }}
                 onAddressQueryChange={setAddressQuery}
                 onSelectPlace={selectPlace}
                 onMapPick={handleMapPick}

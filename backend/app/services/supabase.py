@@ -264,6 +264,23 @@ class SupabaseClient:
         if response.status_code >= 400:
             self._handle_error(response, "delete storage object")
 
+    async def move_storage_object(self, source: str, destination: str) -> None:
+        bucket = self._settings.supabase_storage_bucket
+        url = f"{self._storage_url}/object/move"
+        response = await self._request(
+            "POST",
+            url,
+            json={
+                "bucketId": bucket,
+                "sourceKey": source,
+                "destinationKey": destination,
+            },
+            headers=self._auth_headers,
+            error_context="move storage object",
+        )
+        if response.status_code >= 400:
+            self._handle_error(response, "move storage object")
+
 
 def _parse_error_body(response: httpx.Response) -> dict[str, Any]:
     try:

@@ -9,8 +9,15 @@ export interface Crisis {
   epicenter_lat?: number | null;
   epicenter_lng?: number | null;
   status: CrisisStatus;
+  is_unlisted?: boolean;
   onset_at: string;
   created_at: string;
+}
+
+export interface ReportingOptions {
+  crises: Crisis[];
+  unlisted_crisis_id: string;
+  nearest_crisis_id: string | null;
 }
 
 export type DamageLevel = "minimal" | "partial" | "complete";

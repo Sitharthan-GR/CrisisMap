@@ -341,3 +341,150 @@ async def list_reports_for_export(
         limit=10_000,
     )
     return rows
+
+
+async def _assert_unlisted_report(supabase: SupabaseClient, report_id: str) -> ReportOut:
+    from app.services.crisis import get_or_create_unlisted_crisis
+
+    report = await get_report(supabase, report_id)
+    unlisted = await get_or_create_unlisted_crisis(supabase)
+    if report.crisis_id != unlisted.id:
+        raise ValidationError("Report is not an unlisted report")
+    return report
+
+
+async def _move_report_photos_to_crisis(
+    supabase: SupabaseClient,
+    report_id: str,
+    old_crisis_id: str,
+    new_crisis_id: str,
+) -> None:
+    from app.services.photos import MIME_EXTENSIONS
+
+    rows, _ = await supabase.select(
+        "photo",
+        filters=[("report_id", f"eq.{report_id}")],
+    )
+    for row in rows:
+        old_path = row["storage_url"]
+        mime_type = row.get("mime_type") or "image/jpeg"
+        ext = MIME_EXTENSIONS.get(mime_type, "jpg")
+        photo_id = row["id"]
+        new_path = f"{new_crisis_id}/{report_id}/original_{photo_id}.{ext}"
+        if old_path != new_path:
+            await supabase.move_storage_object(old_path, new_path)
+            await supabase.update(
+                "photo",
+                [("id", f"eq.{photo_id}")],
+                {"storage_url": new_path},
+            )
+
+
+async def list_unlisted_reports(supabase: SupabaseClient) -> list[dict[str, Any]]:
+    from app.schemas.admin import UnlistedReportOut
+    from app.services.crisis import get_or_create_unlisted_crisis
+    from app.services.photos import list_report_photos
+
+    unlisted = await get_or_create_unlisted_crisis(supabase)
+    rows, _ = await supabase.select(
+        "report",
+        columns=f"{REPORT_SELECT},location({LOCATION_SELECT})",
+        filters=[
+            ("crisis_id", f"eq.{unlisted.id}"),
+            ("is_latest_version", "eq.true"),
+        ],
+        order="collected_at.desc",
+        limit=500,
+    )
+    results: list[dict[str, Any]] = []
+    for row in rows:
+        report = _report_out(row)
+        photos = await list_report_photos(supabase, row["id"])
+        item = UnlistedReportOut(**report.model_dump(), photos=photos)
+        results.append(item.model_dump(mode="json"))
+    return results
+
+
+async def assign_unlisted_report(
+    supabase: SupabaseClient, report_id: str, target_crisis_id: str
+) -> ReportOut:
+    from app.services.crisis import get_crisis
+
+    report = await _assert_unlisted_report(supabase, report_id)
+    target = await get_crisis(supabase, target_crisis_id)
+    if target.is_unlisted:
+        raise ValidationError("Cannot assign to the unlisted crisis")
+    if target.status != "active":
+        raise ValidationError("Target crisis must be active")
+
+    await _move_report_photos_to_crisis(
+        supabase, report_id, report.crisis_id, target_crisis_id
+    )
+    await supabase.update(
+        "report",
+        [("id", f"eq.{report_id}")],
+        {"crisis_id": target_crisis_id},
+    )
+    logger.info(
+        "unlisted_report_assigned",
+        report_id=report_id,
+        crisis_id=target_crisis_id,
+    )
+    return await get_report(supabase, report_id)
+
+
+async def create_crisis_from_unlisted_report(
+    supabase: SupabaseClient,
+    report_id: str,
+    *,
+    name: str,
+    crisis_type: str,
+    crisis_subtype: str,
+    onset_at: datetime,
+    epicenter_lat: float | None = None,
+    epicenter_lng: float | None = None,
+) -> tuple[Any, ReportOut]:
+    from app.services.crisis import create_crisis
+    from app.schemas.crisis import CrisisCreate
+
+    report = await _assert_unlisted_report(supabase, report_id)
+    lat = epicenter_lat
+    lng = epicenter_lng
+    if lat is None and report.location is not None:
+        lat = report.location.latitude
+    if lng is None and report.location is not None:
+        lng = report.location.longitude
+
+    crisis = await create_crisis(
+        supabase,
+        CrisisCreate(
+            name=name,
+            crisis_type=crisis_type,  # type: ignore[arg-type]
+            crisis_subtype=crisis_subtype,
+            onset_at=onset_at,
+            epicenter_lat=lat,
+            epicenter_lng=lng,
+        ),
+    )
+    updated = await assign_unlisted_report(supabase, report_id, crisis.id)
+    return crisis, updated
+
+
+async def delete_unlisted_report(supabase: SupabaseClient, report_id: str) -> None:
+    await _assert_unlisted_report(supabase, report_id)
+    photos, _ = await supabase.select(
+        "photo",
+        filters=[("report_id", f"eq.{report_id}")],
+    )
+    for photo in photos:
+        try:
+            await supabase.delete_storage_object(photo["storage_url"])
+        except Exception:
+            logger.warning(
+                "photo_storage_delete_failed",
+                photo_id=photo["id"],
+                path=photo["storage_url"],
+            )
+        await supabase.delete("photo", [("id", f"eq.{photo['id']}")])
+    await supabase.delete("report", [("id", f"eq.{report_id}")])
+    logger.info("unlisted_report_deleted", report_id=report_id)

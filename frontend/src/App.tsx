@@ -1,4 +1,5 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
+import AdminPage from "./components/AdminPage";
 import CrisisReportForm from "./components/CrisisReportForm";
 import Dashboard from "./components/Dashboard";
 
@@ -8,6 +9,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/report" element={<CrisisReportForm />} />
+        <Route path="/admin" element={<AdminPage />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

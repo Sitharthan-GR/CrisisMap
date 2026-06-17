@@ -1,4 +1,4 @@
-import { Map, RefreshCw } from "lucide-react";
+import { Map, RefreshCw, Shield } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import LanguageSwitcher from "./LanguageSwitcher";
@@ -27,6 +27,13 @@ export default function Header({ onRefresh, loading }: HeaderProps) {
 
       <div className="flex items-center gap-2">
         <LanguageSwitcher />
+        <Link
+          to="/admin"
+          className="inline-flex items-center gap-2 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm font-medium text-slate-300 transition hover:border-slate-500 hover:text-white"
+        >
+          <Shield className="h-4 w-4" />
+          {t("nav.admin")}
+        </Link>
         <Link
           to="/report"
           className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-muted"

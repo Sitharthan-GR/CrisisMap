@@ -11,6 +11,7 @@
     "dashboard": "Dashboard",
     "reportDamage": "Report damage",
     "refresh": "Refresh",
+    "admin": "Admin",
     "backToDashboard": "Back to dashboard"
   },
   "dashboard": {
@@ -114,6 +115,11 @@
     "noActiveCrisesTitle": "No active crises",
     "noActiveCrisesBody": "An admin must create an active crisis before reports can be submitted.",
     "reportDamage": "Report damage",
+    "crisisEventLabel": "Which crisis is this report for?",
+    "crisisEventOther": "Other (not listed)",
+    "crisisEventOtherHint": "This report will only be visible to admins until a crisis is assigned.",
+    "nearestCrisis": "nearest",
+    "nearestCrisisHint": "Auto-selected based on your location. You can change this above.",
     "stepOf": "Step {{current}} of 6",
     "stepOptional": "Step 6 of 6 · optional",
     "questions": {
@@ -150,6 +156,7 @@
     "submitAnother": "Submit another report",
     "doneTitle": "Report submitted",
     "doneSubtitle": "Now visible on the crisis map",
+    "doneSubtitleUnlisted": "Submitted for admin review (not on the public map)",
     "doneSummary": "{{damage}} damage · {{infra}}",
     "donePhotos": " · {{count}} photo",
     "donePhotos_plural": " · {{count}} photos",
@@ -162,6 +169,78 @@
       "photoTooLarge": "Each image must be 50 MB or smaller.",
       "photoEmpty": "Image file is empty.",
       "photoMax": "You can attach up to {{max}} images per report."
+    }
+  },
+  "locationPicker": {
+    "useMyGps": "Use my GPS",
+    "tabGps": "GPS",
+    "tabMap": "Tap map",
+    "tabSearch": "Search",
+    "source": {
+      "gps": "GPS",
+      "map": "Map",
+      "search": "Search"
+    }
+  },
+  "admin": {
+    "title": "Admin",
+    "subtitle": "Manage crises and response status",
+    "loginSubtitle": "Sign in to manage crises",
+    "passwordLabel": "Admin password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "signOut": "Sign out",
+    "createCrisis": "Create crisis",
+    "createHint": "New crises start as active and appear in the dashboard dropdown.",
+    "fieldName": "Crisis name",
+    "fieldType": "Crisis type",
+    "fieldSubtype": "Subtype",
+    "fieldOnset": "Onset date & time",
+    "fieldLocation": "Crisis location",
+    "locationHint": "Search, tap the map, or use GPS — all set the same reference point.",
+    "epicenterCoords": "Location: {{lat}}, {{lng}}",
+    "subtypePlaceholder": "e.g. earthquake, flood, hurricane",
+    "createButton": "Create crisis",
+    "creating": "Creating…",
+    "createSuccess": "Created “{{name}}”",
+    "allCrises": "All crises",
+    "unlistedReports": "Unlisted reports",
+    "unlistedReportsHint": "Reports submitted under “Other (not listed)” — visible to admins only.",
+    "unlistedReportsEmpty": "No unlisted reports yet.",
+    "unlistedReportCount": "{{count}} reports",
+    "unlistedReportCount_one": "{{count}} report",
+    "unlistedAssignExisting": "Assign to existing crisis",
+    "unlistedSelectCrisis": "Select a crisis…",
+    "unlistedNoCrises": "No active crises available",
+    "unlistedAssign": "Assign",
+    "unlistedCreateCrisis": "Create new crisis for this report",
+    "unlistedCreateCrisisTitle": "New crisis from report location",
+    "unlistedCreateCrisisHint": "Epicenter defaults to the report coordinates.",
+    "unlistedCreateAndAssign": "Create & assign",
+    "unlistedRemove": "Remove",
+    "unlistedDeleteConfirm": "Permanently delete this unlisted report and its photos?",
+    "unlistedNoLocation": "Location unknown",
+    "cancel": "Cancel",
+    "noCrises": "No crises yet.",
+    "changeStatus": "Status",
+    "status": {
+      "active": "Active",
+      "closed": "Closed"
+    },
+    "crisisType": {
+      "natural_hazard": "Natural hazard",
+      "technological": "Technological",
+      "human_made": "Human-made"
+    },
+    "errors": {
+      "loginFailed": "Could not sign in.",
+      "loadFailed": "Could not load crises.",
+      "unlistedLoadFailed": "Could not load unlisted reports.",
+      "assignFailed": "Could not assign report to crisis.",
+      "createFromReportFailed": "Could not create crisis from report.",
+      "deleteFailed": "Could not delete report.",
+      "createFailed": "Could not create crisis.",
+      "updateFailed": "Could not update crisis."
     }
   },
   "map": {

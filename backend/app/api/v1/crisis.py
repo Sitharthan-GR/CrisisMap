@@ -1,9 +1,9 @@
 import structlog
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query
 
-from app.dependencies import SettingsDep, SupabaseDep
+from app.dependencies import SupabaseDep
 from app.schemas.common import success
-from app.schemas.crisis import CrisisCreate, CrisisListQuery, CrisisUpdate
+from app.schemas.crisis import CrisisListQuery
 from app.services import crisis as crisis_service
 
 logger = structlog.get_logger(__name__)
@@ -11,12 +11,13 @@ logger = structlog.get_logger(__name__)
 router = APIRouter(prefix="/crises", tags=["crises"])
 
 
-@router.post("", status_code=status.HTTP_201_CREATED)
-async def create_crisis(
-    payload: CrisisCreate,
+@router.get("/reporting-options")
+async def reporting_options(
     supabase: SupabaseDep,
+    lat: float | None = Query(default=None, ge=-90, le=90),
+    lng: float | None = Query(default=None, ge=-180, le=180),
 ) -> dict:
-    data = await crisis_service.create_crisis(supabase, payload)
+    data = await crisis_service.get_reporting_options(supabase, lat=lat, lng=lng)
     return success(data.model_dump(mode="json"))
 
 
@@ -32,14 +33,4 @@ async def list_crises(
 @router.get("/{crisis_id}")
 async def get_crisis(crisis_id: str, supabase: SupabaseDep) -> dict:
     data = await crisis_service.get_crisis(supabase, crisis_id)
-    return success(data.model_dump(mode="json"))
-
-
-@router.patch("/{crisis_id}")
-async def update_crisis(
-    crisis_id: str,
-    payload: CrisisUpdate,
-    supabase: SupabaseDep,
-) -> dict:
-    data = await crisis_service.update_crisis(supabase, crisis_id, payload)
     return success(data.model_dump(mode="json"))

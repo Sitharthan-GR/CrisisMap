@@ -30,10 +30,17 @@ class CrisisOut(BaseModel):
     epicenter_lat: float | None = None
     epicenter_lng: float | None = None
     status: CrisisStatus
+    is_unlisted: bool = False
     onset_at: datetime
     created_at: datetime
 
     model_config = {"from_attributes": True}
+
+
+class ReportingOptionsOut(BaseModel):
+    crises: list[CrisisOut]
+    unlisted_crisis_id: str
+    nearest_crisis_id: str | None = None
 
 
 class CrisisListQuery(BaseModel):
