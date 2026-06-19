@@ -18,9 +18,9 @@ export default function ReportMapOverlay({
   const { t } = useTranslation();
 
   return (
-    <div className="absolute left-3 right-3 top-3 z-[1000] flex max-h-[calc(100%-5.5rem)] flex-col overflow-hidden rounded-xl border border-surface-border bg-surface-raised/98 shadow-panel backdrop-blur sm:left-3 sm:right-auto sm:w-[min(100%,320px)]">
-      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-border px-3 py-2">
-        <p className="text-xs font-medium uppercase tracking-wide text-slate-500">
+    <div className="absolute left-3 right-3 top-3 z-[1000] flex max-h-[calc(100%-5.5rem)] flex-col overflow-hidden rounded-xl border border-surface-border bg-[#121820]/98 shadow-panel backdrop-blur sm:left-3 sm:right-auto sm:w-[min(100%,380px)]">
+      <div className="flex shrink-0 items-center justify-between gap-2 border-b border-surface-border px-4 py-2.5">
+        <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400">
           {t("reportDetail.title")}
         </p>
         <button
@@ -32,7 +32,7 @@ export default function ReportMapOverlay({
           <X className="h-4 w-4" />
         </button>
       </div>
-      <div className="min-h-0 flex-1 overflow-y-auto p-3">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-3">
         <ReportDetailContent
           reportId={reportId}
           crisisName={crisisName}

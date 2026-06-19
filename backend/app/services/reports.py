@@ -315,17 +315,31 @@ async def list_crisis_reports(
 
 async def list_reports_for_export(
     supabase: SupabaseClient,
-    crisis_id: str,
+    crisis_id: str | None,
     *,
     status: str | None,
     date_from: datetime | None,
     date_to: datetime | None,
     include_all_statuses: bool,
 ) -> list[dict[str, Any]]:
+    from app.services.crisis import list_all_crises
+
+    if crisis_id:
+        crisis_ids = [crisis_id]
+    else:
+        crises = await list_all_crises(supabase)
+        crisis_ids = [crisis.id for crisis in crises if not crisis.is_unlisted]
+        if not crisis_ids:
+            return []
+
     filters: list[tuple[str, str]] = [
-        ("crisis_id", f"eq.{crisis_id}"),
         ("is_latest_version", "eq.true"),
     ]
+    if len(crisis_ids) == 1:
+        filters.append(("crisis_id", f"eq.{crisis_ids[0]}"))
+    else:
+        filters.append(("crisis_id", f"in.({','.join(crisis_ids)})"))
+
     if not include_all_statuses:
         filters.append(("status", f"eq.{status or 'validated'}"))
     if date_from:

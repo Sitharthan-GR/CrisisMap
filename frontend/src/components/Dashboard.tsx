@@ -462,6 +462,7 @@ export default function Dashboard() {
               </div>
             )}
 
+            <div className="absolute inset-0">
             <CrisisMap
               viewport={viewport}
               reports={reportsInRange}
@@ -480,6 +481,7 @@ export default function Dashboard() {
               }}
               onClearReport={() => setSelectedReport(null)}
             />
+            </div>
 
             {pinDropMode && (
               <div className="absolute left-1/2 top-4 z-[1000] -translate-x-1/2 rounded-lg border border-orange-500/40 bg-orange-950/90 px-4 py-2 text-xs text-orange-100 shadow-panel">

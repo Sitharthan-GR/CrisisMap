@@ -1,7 +1,9 @@
 import secrets
+from datetime import datetime
 
 import structlog
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Query, status
+from fastapi.responses import Response
 
 from app.core.admin_auth import create_admin_token
 from app.core.exceptions import UnauthorizedError
@@ -16,11 +18,24 @@ from app.schemas.admin import (
 from app.schemas.common import success
 from app.schemas.crisis import CrisisCreate, CrisisUpdate
 from app.services import crisis as crisis_service
+from app.services import export as export_service
 from app.services import reports as report_service
 
 logger = structlog.get_logger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
+
+
+def _parse_export_crisis_id(crisis_id: str) -> str | None:
+    return None if crisis_id == "all" else crisis_id
+
+
+def _export_response(content: str | bytes, filename: str, media_type: str) -> Response:
+    return Response(
+        content=content,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.post("/login")
@@ -117,3 +132,66 @@ async def admin_delete_unlisted_report(
 ) -> dict:
     await report_service.delete_unlisted_report(supabase, report_id)
     return success({"deleted": True})
+
+
+@router.get("/export/csv")
+async def admin_export_csv(
+    _admin: AdminDep,
+    supabase: SupabaseDep,
+    crisis_id: str = Query(..., description='Crisis UUID or "all"'),
+    status: str | None = Query(default="validated"),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+) -> Response:
+    include_all = status == "all"
+    content, filename = await export_service.export_csv(
+        supabase,
+        _parse_export_crisis_id(crisis_id),
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        include_all_statuses=include_all,
+    )
+    return _export_response(content, filename, "text/csv")
+
+
+@router.get("/export/geojson")
+async def admin_export_geojson(
+    _admin: AdminDep,
+    supabase: SupabaseDep,
+    crisis_id: str = Query(..., description='Crisis UUID or "all"'),
+    status: str | None = Query(default="validated"),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+) -> Response:
+    include_all = status == "all"
+    content, filename = await export_service.export_geojson(
+        supabase,
+        _parse_export_crisis_id(crisis_id),
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        include_all_statuses=include_all,
+    )
+    return _export_response(content, filename, "application/geo+json")
+
+
+@router.get("/export/shapefile")
+async def admin_export_shapefile(
+    _admin: AdminDep,
+    supabase: SupabaseDep,
+    crisis_id: str = Query(..., description='Crisis UUID or "all"'),
+    status: str | None = Query(default="validated"),
+    date_from: datetime | None = Query(default=None),
+    date_to: datetime | None = Query(default=None),
+) -> Response:
+    include_all = status == "all"
+    content, filename = await export_service.export_shapefile(
+        supabase,
+        _parse_export_crisis_id(crisis_id),
+        status=status,
+        date_from=date_from,
+        date_to=date_to,
+        include_all_statuses=include_all,
+    )
+    return _export_response(content, filename, "application/zip")

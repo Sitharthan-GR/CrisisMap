@@ -1,4 +1,4 @@
-import { Lock, LogOut, Plus, Shield } from "lucide-react";
+import { Download, Lock, LogOut, Plus, Shield } from "lucide-react";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -20,6 +20,7 @@ import {
 } from "../lib/adminAuth";
 import { getCurrentLocation } from "../lib/geolocation";
 import type { Crisis, CrisisStatus, CrisisType } from "../types/report";
+import CrisisExportModal from "./CrisisExportModal";
 import ReportLocationPicker from "./ReportLocationPicker";
 import UnlistedReportsPanel from "./UnlistedReportsPanel";
 
@@ -50,6 +51,7 @@ export default function AdminPage() {
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const adminToken = getAdminToken();
 
   const [name, setName] = useState("");
   const [crisisType, setCrisisType] = useState<CrisisType>("natural_hazard");
@@ -68,6 +70,7 @@ export default function AdminPage() {
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const [exportOpen, setExportOpen] = useState(false);
   const gpsAttemptedRef = useRef(false);
 
   const resetLocation = useCallback(() => {
@@ -350,6 +353,14 @@ export default function AdminPage() {
             </Link>
             <button
               type="button"
+              onClick={() => setExportOpen(true)}
+              className="inline-flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-white"
+            >
+              <Download className="h-4 w-4" />
+              {t("export.openModal")}
+            </button>
+            <button
+              type="button"
               onClick={handleLogout}
               className="inline-flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-white"
             >
@@ -539,6 +550,15 @@ export default function AdminPage() {
       </main>
 
       <UnlistedReportsPanel crises={crises} onCrisesChange={loadCrises} />
+
+      {adminToken && (
+        <CrisisExportModal
+          open={exportOpen}
+          onClose={() => setExportOpen(false)}
+          crises={crises}
+          adminToken={adminToken}
+        />
+      )}
     </div>
   );
 }

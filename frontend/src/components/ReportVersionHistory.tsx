@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next";
-import { damageLevelColor, damageLevelLabel } from "../lib/severity";
+import { damageLevelColor } from "../lib/severity";
 import type { ReportVersion } from "../types/report";
 
 interface ReportVersionHistoryProps {
@@ -7,6 +7,32 @@ interface ReportVersionHistoryProps {
   activeReportId: string;
   onSelectVersion?: (reportId: string) => void;
   compact?: boolean;
+}
+
+function formatReportRef(id: string): string {
+  const compact = id.replace(/-/g, "").slice(-5).toUpperCase();
+  return `RPT-${compact}`;
+}
+
+function formatHistoryDate(iso: string): string {
+  return new Date(iso).toLocaleString(undefined, {
+    month: "short",
+    day: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+  });
+}
+
+function damageLevelShortLabel(
+  value: ReportVersion["damage_level"],
+  t: (key: string) => string,
+): string {
+  const keys: Record<ReportVersion["damage_level"], string> = {
+    minimal: "damage.minimalTitle",
+    partial: "damage.partialTitle",
+    complete: "damage.completeTitle",
+  };
+  return t(keys[value]);
 }
 
 export default function ReportVersionHistory({
@@ -22,58 +48,52 @@ export default function ReportVersionHistory({
   }
 
   return (
-    <section className="border-t border-surface-border pt-2.5">
-      <p
-        className={`font-medium text-slate-400 ${
-          compact ? "text-[11px]" : "text-xs"
+    <section className={compact ? "pt-1" : "pt-2"}>
+      <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
+        {t("reportDetail.damageHistoryTitle")}
+      </p>
+      <ol
+        className={`relative mt-3 space-y-0 ${
+          compact ? "text-xs" : "text-sm"
         }`}
       >
-        {t("reportDetail.versionHistory", { count: versions.length })}
-      </p>
-      <ol className={`mt-2 space-y-1.5 ${compact ? "text-xs" : "text-sm"}`}>
-        {versions.map((version) => {
+        {versions.map((version, index) => {
           const isActive = version.id === activeReportId;
           const canSelect = Boolean(onSelectVersion) && !isActive;
+          const isLast = index === versions.length - 1;
 
           return (
-            <li key={version.id}>
+            <li key={version.id} className="relative flex gap-3 pb-4 last:pb-0">
+              {!isLast && (
+                <span
+                  className="absolute start-[5px] top-3 h-[calc(100%-4px)] w-px bg-surface-border"
+                  aria-hidden
+                />
+              )}
+              <span
+                className="relative z-[1] mt-1 h-2.5 w-2.5 shrink-0 rounded-full"
+                style={{ backgroundColor: damageLevelColor(version.damage_level) }}
+                aria-hidden
+              />
               <button
                 type="button"
                 disabled={!canSelect}
                 onClick={() => onSelectVersion?.(version.id)}
-                className={`w-full rounded-lg border px-2.5 py-2 text-left transition ${
-                  isActive
-                    ? "border-accent/50 bg-accent/10"
-                    : canSelect
-                      ? "border-surface-border bg-surface/40 hover:border-slate-500 hover:bg-surface"
-                      : "border-surface-border bg-surface/20"
+                className={`min-w-0 flex-1 text-left transition ${
+                  canSelect ? "cursor-pointer hover:opacity-90" : "cursor-default"
                 }`}
               >
-                <div className="flex items-start justify-between gap-2">
-                  <div className="flex min-w-0 items-center gap-2">
-                    <span
-                      className="h-2 w-2 shrink-0 rounded-full"
-                      style={{ backgroundColor: damageLevelColor(version.damage_level) }}
-                      aria-hidden
-                    />
-                    <span className="truncate font-medium text-slate-200">
-                      {t("reportDetail.versionNumber", {
-                        number: version.version_number,
-                      })}
-                      <span className="font-normal text-slate-400">
-                        {" · "}
-                        {damageLevelLabel(version.damage_level)}
-                      </span>
-                    </span>
-                  </div>
-                  {version.is_latest_version && (
-                    <span className="shrink-0 rounded bg-emerald-500/15 px-1.5 py-0.5 text-[10px] font-medium uppercase tracking-wide text-emerald-400">
-                      {t("reportDetail.latestVersion")}
-                    </span>
-                  )}
-                </div>
-                <p className="mt-1 text-slate-500">
-                  {new Date(version.submitted_at).toLocaleString()}
+                <p
+                  className={`font-medium ${
+                    isActive ? "text-white" : "text-slate-200"
+                  }`}
+                >
+                  {damageLevelShortLabel(version.damage_level, t)}
+                </p>
+                <p className="mt-0.5 text-slate-500">
+                  {formatHistoryDate(version.submitted_at)}
+                  {" · "}
+                  {formatReportRef(version.id)}
                 </p>
                 {isActive && (
                   <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">

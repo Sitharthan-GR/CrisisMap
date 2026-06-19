@@ -187,6 +187,110 @@ export async function adminDeleteUnlistedReport(
   await parseApiResponse<{ deleted: boolean }>(response);
 }
 
+export interface ExportQueryParams {
+  status?: "validated" | "all";
+  date_from?: string;
+  date_to?: string;
+}
+
+export type ExportFormat = "csv" | "geojson" | "shapefile";
+
+export interface AdminExportOptions {
+  crisisId: string | "all";
+  format: ExportFormat;
+  params?: ExportQueryParams;
+}
+
+function buildExportQuery(params?: ExportQueryParams): string {
+  const search = new URLSearchParams();
+  if (params?.status) {
+    search.set("status", params.status);
+  }
+  if (params?.date_from) {
+    search.set("date_from", params.date_from);
+  }
+  if (params?.date_to) {
+    search.set("date_to", params.date_to);
+  }
+  return search.toString();
+}
+
+function parseContentDispositionFilename(header: string | null): string | null {
+  if (!header) return null;
+  const match = /filename="([^"]+)"/.exec(header);
+  return match?.[1] ?? null;
+}
+
+function triggerBrowserDownload(blob: Blob, filename: string) {
+  const url = URL.createObjectURL(blob);
+  const anchor = document.createElement("a");
+  anchor.href = url;
+  anchor.download = filename;
+  anchor.rel = "noopener";
+  document.body.appendChild(anchor);
+  anchor.click();
+  anchor.remove();
+  URL.revokeObjectURL(url);
+}
+
+export function downloadCrisisExport(
+  crisisId: string,
+  format: "csv" | "geojson",
+  params?: ExportQueryParams,
+): void {
+  const search = new URLSearchParams(buildExportQuery(params));
+  const query = search.toString();
+  const url = `${API_BASE_URL}/crises/${crisisId}/export/${format}${
+    query ? `?${query}` : ""
+  }`;
+  window.open(url, "_blank", "noopener,noreferrer");
+}
+
+export async function downloadAdminExport(
+  token: string,
+  options: AdminExportOptions,
+  signal?: AbortSignal,
+): Promise<void> {
+  const search = new URLSearchParams(buildExportQuery(options.params));
+  search.set("crisis_id", options.crisisId);
+
+  const response = await fetch(
+    `${API_BASE_URL}/admin/export/${options.format}?${search.toString()}`,
+    {
+      headers: { Authorization: `Bearer ${token}` },
+      signal,
+    },
+  );
+
+  if (!response.ok) {
+    let message = `Export failed (${response.status})`;
+    try {
+      const body = (await response.json()) as ApiEnvelope<unknown>;
+      message = body.error?.message ?? message;
+    } catch {
+      // ignore parse errors
+    }
+    throw new ApiError(message);
+  }
+
+  const blob = await response.blob();
+  const fallbackName =
+    options.format === "shapefile"
+      ? `rapida_${options.crisisId}.zip`
+      : `rapida_${options.crisisId}.${options.format === "geojson" ? "geojson" : "csv"}`;
+  const filename =
+    parseContentDispositionFilename(response.headers.get("Content-Disposition")) ??
+    fallbackName;
+
+  if (options.format === "csv" || options.format === "geojson") {
+    const text = await blob.text();
+    triggerBrowserDownload(new Blob([text], { type: blob.type }), filename);
+    return;
+  }
+
+  triggerBrowserDownload(blob, filename);
+}
+
 export async function fetchActiveCrises(
   signal?: AbortSignal,
 ): Promise<Crisis[]> {

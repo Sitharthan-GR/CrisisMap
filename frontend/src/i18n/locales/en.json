@@ -243,6 +243,30 @@
       "updateFailed": "Could not update crisis."
     }
   },
+  "export": {
+    "openModal": "Export data",
+    "modalTitle": "Export report data",
+    "modalSubtitle": "Choose a crisis, format, and filters, then download.",
+    "close": "Close",
+    "crisisFilter": "Crisis",
+    "allCrises": "All crises",
+    "format": "Format",
+    "title": "Export reports",
+    "statusFilter": "Include reports",
+    "statusValidated": "Validated only",
+    "statusAll": "All statuses",
+    "dateFrom": "From date",
+    "dateTo": "To date",
+    "csv": "CSV",
+    "geojson": "GeoJSON",
+    "shapefile": "Shapefile",
+    "shapefileHint": "Shapefile downloads as a ZIP with .shp, .dbf, and .prj files.",
+    "exportButton": "Export",
+    "downloading": "Exporting…",
+    "errors": {
+      "failed": "Export failed."
+    }
+  },
   "map": {
     "epicenter": "Crisis epicenter",
     "reportsAtLocation": "{{count}} reports at this location",
@@ -250,6 +274,13 @@
   },
   "reportDetail": {
     "title": "Report details",
+    "tabInfo": "Info",
+    "tabPhotos": "Photos",
+    "tabHistory": "History",
+    "damageHistoryTitle": "Damage history — same building",
+    "debrisPresent": "Present",
+    "debrisNone": "None",
+    "noDescriptionShort": "None provided",
     "close": "Close",
     "enlarge": "Enlarge",
     "viewFullscreen": "View full screen",

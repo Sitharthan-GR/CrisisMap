@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapViewport } from "../types/crisis";
 import type { MapReportPin } from "../types/report";
@@ -79,28 +79,135 @@ function MapPinDropHandler({
   return null;
 }
 
+const MIN_LAT = -85;
+const MAX_LAT = 85;
+const WORLD_BOUNDS = L.latLngBounds([MIN_LAT, -180], [MAX_LAT, 180]);
+const BASEMAP_URL = "https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png";
+const GLOBE_WRAP_MAX_ZOOM = 9;
+const TILE_MAX_NATIVE_ZOOM = 18;
+const MAP_MAX_ZOOM = 19;
+
+function normalizeLongitude(lng: number): number {
+  return ((((lng + 180) % 360) + 360) % 360) - 180;
+}
+
+function stabilizeView(map: L.Map) {
+  const center = map.getCenter();
+  const lng = normalizeLongitude(center.lng);
+  if (Math.abs(lng - center.lng) > 1e-4) {
+    map.setView([center.lat, lng], map.getZoom(), { animate: false });
+  }
+}
+
+function clampLatitude(map: L.Map) {
+  const bounds = map.getBounds();
+  const south = bounds.getSouth();
+  const north = bounds.getNorth();
+
+  if (south >= MIN_LAT && north <= MAX_LAT) return;
+
+  const center = map.getCenter();
+  const halfSpan = (north - south) / 2;
+  const minCenterLat = MIN_LAT + halfSpan;
+  const maxCenterLat = MAX_LAT - halfSpan;
+
+  if (minCenterLat > maxCenterLat) {
+    map.setView([0, center.lng], map.getZoom(), { animate: false });
+    return;
+  }
+
+  const clampedLat = Math.max(minCenterLat, Math.min(maxCenterLat, center.lat));
+  if (Math.abs(clampedLat - center.lat) > 1e-6) {
+    map.setView([clampedLat, center.lng], map.getZoom(), { animate: false });
+  }
+}
+
+/** Resize-aware min zoom + vertical clamp; horizontal pan wraps like a globe. */
+function MapGlobeViewport({ layoutKey }: { layoutKey?: string }) {
+  const map = useMap();
+
+  useEffect(() => {
+    const syncWrapMode = () => {
+      map.options.worldCopyJump = map.getZoom() <= GLOBE_WRAP_MAX_ZOOM;
+    };
+
+    const sync = () => {
+      map.invalidateSize();
+      const minZoom = map.getBoundsZoom(WORLD_BOUNDS, false);
+      map.setMinZoom(minZoom);
+      if (map.getZoom() < minZoom) {
+        map.setZoom(minZoom);
+      }
+      syncWrapMode();
+      stabilizeView(map);
+      clampLatitude(map);
+    };
+
+    const onMoveEnd = () => {
+      stabilizeView(map);
+      clampLatitude(map);
+    };
+
+    const onZoomEnd = () => {
+      syncWrapMode();
+      stabilizeView(map);
+      clampLatitude(map);
+    };
+
+    const onDrag = () => clampLatitude(map);
+
+    sync();
+    const frame = requestAnimationFrame(sync);
+    const timer = window.setTimeout(sync, 320);
+
+    map.on("drag", onDrag);
+    map.on("moveend", onMoveEnd);
+    map.on("zoomend", onZoomEnd);
+
+    return () => {
+      cancelAnimationFrame(frame);
+      window.clearTimeout(timer);
+      map.off("drag", onDrag);
+      map.off("moveend", onMoveEnd);
+      map.off("zoomend", onZoomEnd);
+    };
+  }, [layoutKey, map]);
+
+  return null;
+}
+
+function BasemapTileLayer() {
+  const map = useMap();
+  const [noWrap, setNoWrap] = useState(() => map.getZoom() > GLOBE_WRAP_MAX_ZOOM);
+
+  useEffect(() => {
+    const sync = () => setNoWrap(map.getZoom() > GLOBE_WRAP_MAX_ZOOM);
+    sync();
+    map.on("zoomend", sync);
+    return () => {
+      map.off("zoomend", sync);
+    };
+  }, [map]);
+
+  return (
+    <TileLayer
+      key={noWrap ? "basemap-nowrap" : "basemap-wrap"}
+      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      url={BASEMAP_URL}
+      noWrap={noWrap}
+      maxNativeZoom={TILE_MAX_NATIVE_ZOOM}
+      maxZoom={MAP_MAX_ZOOM}
+      updateWhenZooming
+    />
+  );
+}
+
 function MapRecenter({ center }: { center: [number, number] }) {
   const map = useMap();
 
   useEffect(() => {
     map.setView(center, map.getZoom(), { animate: true });
   }, [center, map]);
-
-  return null;
-}
-
-function MapResizeOnLayoutChange({ layoutKey }: { layoutKey?: string }) {
-  const map = useMap();
-
-  useEffect(() => {
-    const resize = () => map.invalidateSize();
-    const frame = requestAnimationFrame(resize);
-    const timer = window.setTimeout(resize, 320);
-    return () => {
-      cancelAnimationFrame(frame);
-      window.clearTimeout(timer);
-    };
-  }, [layoutKey, map]);
 
   return null;
 }
@@ -165,15 +272,15 @@ export default function CrisisMap({
       <MapContainer
         center={center}
         zoom={12}
+        minZoom={2}
+        maxZoom={MAP_MAX_ZOOM}
+        worldCopyJump
         className="h-full w-full"
         scrollWheelZoom
       >
-        <TileLayer
-          attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
-          url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-        />
+        <BasemapTileLayer />
+        <MapGlobeViewport layoutKey={layoutKey} />
         <MapRecenter center={center} />
-        <MapResizeOnLayoutChange layoutKey={layoutKey} />
         <MapPanToReport reports={reports} selectedReportId={selectedReportId} />
         <MapPinDropHandler active={pinDropActive} onPick={onMapPick} />
         <BuildingFootprints
