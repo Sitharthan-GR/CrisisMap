@@ -1,5 +1,5 @@
 import L from "leaflet";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapViewport } from "../types/crisis";
 import type { MapReportPin } from "../types/report";
@@ -16,6 +16,7 @@ interface CrisisMapProps {
   reports: MapReportPin[];
   selectedReportId?: string;
   crisisName?: string;
+  mapFocusKey?: string;
   layoutKey?: string;
   pinDropActive?: boolean;
   pickedLocation?: PickedMapLocation | null;
@@ -24,6 +25,7 @@ interface CrisisMapProps {
   onSelectReport: (report: MapReportPin) => void;
   onSelectReportVersion?: (reportId: string) => void;
   onClearReport?: () => void;
+  onReportDeleted?: () => void;
 }
 
 function MapPanToReport({
@@ -202,12 +204,30 @@ function BasemapTileLayer() {
   );
 }
 
-function MapRecenter({ center }: { center: [number, number] }) {
+function MapRecenter({
+  center,
+  focusKey,
+  focusZoom = 12,
+}: {
+  center: [number, number];
+  focusKey?: string;
+  focusZoom?: number;
+}) {
   const map = useMap();
+  const prevFocusKey = useRef<string | undefined>(undefined);
 
   useEffect(() => {
+    const focusChanged =
+      focusKey !== undefined && focusKey !== prevFocusKey.current;
+    prevFocusKey.current = focusKey;
+
+    if (focusChanged && focusKey) {
+      map.flyTo(center, focusZoom, { animate: true, duration: 0.55 });
+      return;
+    }
+
     map.setView(center, map.getZoom(), { animate: true });
-  }, [center, map]);
+  }, [center, focusKey, focusZoom, map]);
 
   return null;
 }
@@ -252,6 +272,7 @@ export default function CrisisMap({
   reports,
   selectedReportId,
   crisisName,
+  mapFocusKey,
   layoutKey,
   pinDropActive = false,
   pickedLocation,
@@ -260,6 +281,7 @@ export default function CrisisMap({
   onSelectReport,
   onSelectReportVersion,
   onClearReport,
+  onReportDeleted,
 }: CrisisMapProps) {
   const center: [number, number] = [viewport.lat, viewport.lng];
 
@@ -280,7 +302,7 @@ export default function CrisisMap({
       >
         <BasemapTileLayer />
         <MapGlobeViewport layoutKey={layoutKey} />
-        <MapRecenter center={center} />
+        <MapRecenter center={center} focusKey={mapFocusKey} />
         <MapPanToReport reports={reports} selectedReportId={selectedReportId} />
         <MapPinDropHandler active={pinDropActive} onPick={onMapPick} />
         <BuildingFootprints
@@ -336,6 +358,7 @@ export default function CrisisMap({
           crisisName={crisisName}
           onClose={onClearReport}
           onSelectVersion={onSelectReportVersion}
+          onReportDeleted={onReportDeleted}
         />
       )}
     </div>

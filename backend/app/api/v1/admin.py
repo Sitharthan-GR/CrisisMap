@@ -125,12 +125,12 @@ async def admin_create_crisis_from_report(
 
 
 @router.delete("/reports/{report_id}")
-async def admin_delete_unlisted_report(
+async def admin_delete_report(
     report_id: str,
     _admin: AdminDep,
     supabase: SupabaseDep,
 ) -> dict:
-    await report_service.delete_unlisted_report(supabase, report_id)
+    await report_service.delete_report(supabase, report_id)
     return success({"deleted": True})
 
 

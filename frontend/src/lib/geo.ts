@@ -29,3 +29,26 @@ export function filterReportsInRadius(
       radiusMeters,
   );
 }
+
+export function reportsCentroid(
+  reports: MapReportPin[],
+): { lat: number; lng: number } | null {
+  if (reports.length === 0) return null;
+  let latSum = 0;
+  let lngSum = 0;
+  for (const report of reports) {
+    latSum += report.latitude;
+    lngSum += report.longitude;
+  }
+  return {
+    lat: latSum / reports.length,
+    lng: lngSum / reports.length,
+  };
+}
+
+export function hasValidEpicenter(
+  lat: number | null | undefined,
+  lng: number | null | undefined,
+): lat is number {
+  return lat != null && lng != null && !(lat === 0 && lng === 0);
+}

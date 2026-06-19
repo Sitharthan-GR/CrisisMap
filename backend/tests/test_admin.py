@@ -1,3 +1,5 @@
+from unittest.mock import AsyncMock
+
 import pytest
 from httpx import AsyncClient
 
@@ -165,3 +167,25 @@ async def test_admin_unlisted_reports(
     body = response.json()
     assert body["error"] is None
     assert body["data"][0]["id"] == "report-1"
+
+
+@pytest.mark.asyncio
+async def test_admin_delete_report(
+    client: AsyncClient,
+    mock_supabase,
+    admin_token: str,
+    monkeypatch,
+) -> None:
+    from app.services import reports as report_service
+
+    delete_mock = AsyncMock()
+    monkeypatch.setattr(report_service, "delete_report", delete_mock)
+
+    response = await client.delete(
+        "/api/v1/admin/reports/report-uuid-1",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200
+    assert response.json()["data"]["deleted"] is True
+    delete_mock.assert_awaited_once()

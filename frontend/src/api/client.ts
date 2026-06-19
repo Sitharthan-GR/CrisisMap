@@ -174,7 +174,7 @@ export async function adminCreateCrisisFromReport(
   return parseApiResponse<{ report: Report; crisis: Crisis }>(response);
 }
 
-export async function adminDeleteUnlistedReport(
+export async function adminDeleteReport(
   token: string,
   reportId: string,
   signal?: AbortSignal,
@@ -185,6 +185,15 @@ export async function adminDeleteUnlistedReport(
     signal,
   });
   await parseApiResponse<{ deleted: boolean }>(response);
+}
+
+/** @deprecated Use adminDeleteReport */
+export async function adminDeleteUnlistedReport(
+  token: string,
+  reportId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  return adminDeleteReport(token, reportId, signal);
 }
 
 export interface ExportQueryParams {

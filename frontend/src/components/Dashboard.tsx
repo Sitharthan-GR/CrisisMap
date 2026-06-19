@@ -1,5 +1,5 @@
 import { Crosshair, LocateFixed, MapPin, Radar } from "lucide-react";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { useNavigate } from "react-router-dom";
 import {
@@ -16,7 +16,7 @@ import {
   DEFAULT_RADIUS_METERS,
   RADIUS_OPTIONS,
 } from "../lib/constants";
-import { filterReportsInRadius } from "../lib/geo";
+import { filterReportsInRadius, hasValidEpicenter, reportsCentroid } from "../lib/geo";
 import { GeolocationError, getCurrentLocation } from "../lib/geolocation";
 import type { MapViewport } from "../types/crisis";
 import type { PickedMapLocation, ReportLocationPrefill } from "../types/location";
@@ -80,6 +80,7 @@ export default function Dashboard() {
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const centeredCrisisRef = useRef<string | null>(null);
 
   const reportsInRange = useMemo(
     () =>
@@ -149,6 +150,7 @@ export default function Dashboard() {
   useEffect(() => {
     if (!selectedCrisisId) return;
     const controller = new AbortController();
+    setAllReports([]);
 
     fetchCrisisMap(selectedCrisisId, { status: "all" }, controller.signal)
       .then((mapData) => setAllReports(mapFeaturesToPins(mapData.features)))
@@ -165,6 +167,27 @@ export default function Dashboard() {
 
     return () => controller.abort();
   }, [selectedCrisisId, t]);
+
+  useEffect(() => {
+    if (!selectedCrisisId) return;
+    if (centeredCrisisRef.current === selectedCrisisId) return;
+
+    const crisis = crisisEvents.find((c) => c.id === selectedCrisisId);
+    if (!crisis) return;
+
+    let lat = crisis.epicenter_lat;
+    let lng = crisis.epicenter_lng;
+
+    if (!hasValidEpicenter(lat, lng)) {
+      const centroid = reportsCentroid(allReports);
+      if (!centroid) return;
+      lat = centroid.lat;
+      lng = centroid.lng;
+    }
+
+    centeredCrisisRef.current = selectedCrisisId;
+    setViewport((v) => ({ ...v, lat, lng }));
+  }, [selectedCrisisId, crisisEvents, allReports]);
 
   const handleRefresh = () => {
     if (selectedCrisisId) {
@@ -327,6 +350,7 @@ export default function Dashboard() {
                   <select
                     value={selectedCrisisId}
                     onChange={(e) => {
+                      centeredCrisisRef.current = null;
                       setSelectedCrisisId(e.target.value);
                       setSelectedReport(null);
                     }}
@@ -468,6 +492,7 @@ export default function Dashboard() {
               reports={reportsInRange}
               selectedReportId={selectedReport?.id}
               crisisName={selectedCrisis?.name}
+              mapFocusKey={selectedCrisisId}
               layoutKey={`${searchPanelOpen}-${feedPanelOpen}`}
               pinDropActive={pinDropMode}
               pickedLocation={pickedLocation}
@@ -480,6 +505,12 @@ export default function Dashboard() {
                 );
               }}
               onClearReport={() => setSelectedReport(null)}
+              onReportDeleted={() => {
+                setSelectedReport(null);
+                if (selectedCrisisId) {
+                  void loadData(selectedCrisisId);
+                }
+              }}
             />
             </div>
 

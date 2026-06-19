@@ -1,3 +1,4 @@
+import re
 from datetime import datetime
 from math import ceil
 from typing import Any
@@ -36,7 +37,15 @@ REPORT_SELECT = (
 def _parse_dt(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    text = str(value).replace("Z", "+00:00")
+    match = re.match(
+        r"^(.+?)\.(\d+)(.*)$",
+        text,
+    )
+    if match:
+        head, frac, rest = match.groups()
+        text = f"{head}.{(frac + '000000')[:6]}{rest}"
+    return datetime.fromisoformat(text)
 
 
 def _location_summary(row: dict[str, Any]) -> LocationSummary:
@@ -484,8 +493,7 @@ async def create_crisis_from_unlisted_report(
     return crisis, updated
 
 
-async def delete_unlisted_report(supabase: SupabaseClient, report_id: str) -> None:
-    await _assert_unlisted_report(supabase, report_id)
+async def _delete_report_photos(supabase: SupabaseClient, report_id: str) -> None:
     photos, _ = await supabase.select(
         "photo",
         filters=[("report_id", f"eq.{report_id}")],
@@ -500,5 +508,51 @@ async def delete_unlisted_report(supabase: SupabaseClient, report_id: str) -> No
                 path=photo["storage_url"],
             )
         await supabase.delete("photo", [("id", f"eq.{photo['id']}")])
+
+
+async def _refresh_location_aggregates(
+    supabase: SupabaseClient, location_id: str
+) -> None:
+    rows, _ = await supabase.select(
+        "report",
+        columns=REPORT_SELECT,
+        filters=[("location_id", f"eq.{location_id}")],
+        order="submitted_at.desc",
+        limit=1000,
+    )
+    if not rows:
+        await supabase.delete("location", [("id", f"eq.{location_id}")])
+        return
+
+    latest_id = rows[0]["id"]
+    for row in rows:
+        is_latest = row["id"] == latest_id
+        if row.get("is_latest_version") != is_latest:
+            await supabase.update(
+                "report",
+                [("id", f"eq.{row['id']}")],
+                {"is_latest_version": is_latest},
+            )
+
+    await supabase.update(
+        "location",
+        [("id", f"eq.{location_id}")],
+        {
+            "report_count": len(rows),
+            "latest_damage_level": rows[0]["damage_level"],
+            "last_updated_at": rows[0]["submitted_at"],
+        },
+    )
+
+
+async def delete_report(supabase: SupabaseClient, report_id: str) -> None:
+    report = await get_report(supabase, report_id)
+    await _delete_report_photos(supabase, report_id)
     await supabase.delete("report", [("id", f"eq.{report_id}")])
-    logger.info("unlisted_report_deleted", report_id=report_id)
+    await _refresh_location_aggregates(supabase, report.location_id)
+    logger.info("report_deleted", report_id=report_id)
+
+
+async def delete_unlisted_report(supabase: SupabaseClient, report_id: str) -> None:
+    await _assert_unlisted_report(supabase, report_id)
+    await delete_report(supabase, report_id)
