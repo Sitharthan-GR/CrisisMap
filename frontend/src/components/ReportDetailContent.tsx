@@ -251,7 +251,7 @@ export default function ReportDetailContent({
                   {formatCoordinates(location.latitude, location.longitude)}
                 </p>
                 {location.what3words && (
-                  <span className="mt-1.5 inline-block rounded-md bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-300">
+                  <span className={isPanel ? "rd-w3w" : "mt-1.5 inline-block rounded-md bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-300"}>
                     /// {location.what3words.replace(/^\/{3}\s?/, "")}
                   </span>
                 )}
@@ -260,34 +260,43 @@ export default function ReportDetailContent({
           )}
 
           <div className={isPanel ? "rd-grid" : "grid grid-cols-2 gap-2"}>
+            {isPanel && (
+              <InfoCell label={t("reportDetail.description")} panel fullWidth>
+                <span className={description ? "desc" : "muted"}>
+                  {description ?? t("reportDetail.noDescriptionShort")}
+                </span>
+              </InfoCell>
+            )}
+            <InfoCell
+              label={t("reportDetail.reporter")}
+              panel={isPanel}
+              fullWidth={isPanel}
+            >
+              {detail.reporter_name && detail.reporter_name !== "anonymous"
+                ? detail.reporter_name
+                : t("reportDetail.anonymous")}
+            </InfoCell>
             <InfoCell label={t("reportDetail.debris")} panel={isPanel}>
-              <span
-                className={
-                  detail.debris_present ? "text-amber-400" : "text-slate-300"
-                }
-              >
+              <span className={detail.debris_present ? "warn" : undefined}>
                 {detail.debris_present
                   ? t("reportDetail.debrisPresent")
                   : t("reportDetail.debrisNone")}
               </span>
             </InfoCell>
-            <InfoCell label={t("reportDetail.reporter")} panel={isPanel}>
-              {detail.reporter_name && detail.reporter_name !== "anonymous"
-                ? detail.reporter_name
-                : t("reportDetail.anonymous")}
-            </InfoCell>
             <InfoCell label={t("reportDetail.submitted")} panel={isPanel}>
               {formatSubmittedAt(detail.submitted_at)}
             </InfoCell>
-            <InfoCell label={t("reportDetail.description")} panel={isPanel}>
-              <span
-                className={`line-clamp-2 ${
-                  description ? "text-slate-200" : "text-slate-500"
-                }`}
-              >
-                {description ?? t("reportDetail.noDescriptionShort")}
-              </span>
-            </InfoCell>
+            {!isPanel && (
+              <InfoCell label={t("reportDetail.description")} panel={false}>
+                <span
+                  className={`line-clamp-2 ${
+                    description ? "text-slate-200" : "text-slate-500"
+                  }`}
+                >
+                  {description ?? t("reportDetail.noDescriptionShort")}
+                </span>
+              </InfoCell>
+            )}
           </div>
 
           <ReportVersionHistory
@@ -331,14 +340,16 @@ function InfoCell({
   label,
   children,
   panel = false,
+  fullWidth = false,
 }: {
   label: string;
   children: React.ReactNode;
   panel?: boolean;
+  fullWidth?: boolean;
 }) {
   if (panel) {
     return (
-      <div className="rd-cell">
+      <div className={`rd-cell${fullWidth ? " rd-cell--full" : ""}`}>
         <div className="k">{label}</div>
         <div className="v">{children}</div>
       </div>

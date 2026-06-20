@@ -1,69 +1,108 @@
-import { Link2, Plus, Trash2 } from "lucide-react";
-import { useCallback, useEffect, useState } from "react";
+import {
+  Building,
+  ChevronDown,
+  Eye,
+  Factory,
+  Home,
+  Landmark,
+  Link2,
+  MoreHorizontal,
+  Mountain,
+  Route,
+  Star,
+  Store,
+  Trees,
+  Zap,
+  type LucideIcon,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import {
   ApiError,
   adminAssignUnlistedReport,
-  adminCreateCrisisFromReport,
   adminDeleteUnlistedReport,
   adminFetchUnlistedReports,
   fetchReverseGeocode,
 } from "../api/client";
 import { briefLocationFromAdmin, shortAddress } from "../lib/address";
+import { crisisTypeIconClass } from "../lib/adminCrisisStats";
 import { getAdminToken } from "../lib/adminAuth";
 import {
+  damageLevelClass,
   damageLevelLabel,
   infraTypeLabel,
 } from "../lib/severity";
-import type { Crisis, CrisisType, ReportDetail } from "../types/report";
-import { PhotoGallery } from "./PhotoLightbox";
+import type { Crisis, DamageLevel, InfraType, ReportDetail } from "../types/report";
+import AdminReportDetailPanel from "./AdminReportDetailPanel";
+import PopoverMenu from "./PopoverMenu";
 
-const CRISIS_TYPES: CrisisType[] = [
-  "natural_hazard",
-  "technological",
-  "human_made",
-];
+const INFRA_ICONS: Record<InfraType, LucideIcon> = {
+  residential: Home,
+  commercial: Store,
+  government: Landmark,
+  utility: Zap,
+  transport: Route,
+  community: Building,
+  public_space: Trees,
+  other: MoreHorizontal,
+};
 
-function defaultOnsetLocal(): string {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 16);
-}
+const TYPE_ICONS: Record<"natural" | "technological" | "human", LucideIcon> = {
+  natural: Mountain,
+  technological: Factory,
+  human: Star,
+};
 
-function toIsoUtcFromLocal(value: string): string {
-  return new Date(value).toISOString();
-}
+const DAMAGE_RANK: Record<DamageLevel, number> = {
+  complete: 3,
+  partial: 2,
+  minimal: 1,
+};
 
-function photoUrls(report: ReportDetail): string[] {
-  return report.photos
-    .map((photo) => photo.thumbnail_url ?? photo.signed_url)
-    .filter((url): url is string => Boolean(url));
-}
+type DamageFilter = "all" | DamageLevel;
+type SortKey = "newest" | "severe";
 
 interface UnlistedReportsPanelProps {
   crises: Crisis[];
   onCrisesChange: () => Promise<void>;
+  onCountChange?: (count: number) => void;
+  onCreateFromReport?: (report: ReportDetail) => void;
+}
+
+function relativeTime(iso: string): string {
+  const mins = Math.max(0, Math.floor((Date.now() - new Date(iso).getTime()) / 60000));
+  if (mins < 1) return "just now";
+  if (mins < 60) return `${mins} min ago`;
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return `${hrs} hr${hrs === 1 ? "" : "s"} ago`;
+  const days = Math.floor(hrs / 24);
+  return `${days} day${days === 1 ? "" : "s"} ago`;
 }
 
 export default function UnlistedReportsPanel({
   crises,
   onCrisesChange,
+  onCountChange,
+  onCreateFromReport,
 }: UnlistedReportsPanelProps) {
   const { t } = useTranslation();
   const [reports, setReports] = useState<ReportDetail[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [actionId, setActionId] = useState<string | null>(null);
-  const [assignCrisisId, setAssignCrisisId] = useState<Record<string, string>>({});
-  const [createOpenId, setCreateOpenId] = useState<string | null>(null);
-  const [photoIndex, setPhotoIndex] = useState<Record<string, number>>({});
   const [addressLabels, setAddressLabels] = useState<Record<string, string>>({});
-  const [createForm, setCreateForm] = useState({
-    name: "",
-    crisisType: "natural_hazard" as CrisisType,
-    crisisSubtype: "",
-    onsetAt: defaultOnsetLocal(),
-  });
+  const [query, setQuery] = useState("");
+  const [damageFilter, setDamageFilter] = useState<DamageFilter>("all");
+  const [sort, setSort] = useState<SortKey>("newest");
+  const [assignPop, setAssignPop] = useState<{
+    id: string;
+    anchor: HTMLElement;
+  } | null>(null);
+  const [menuPop, setMenuPop] = useState<{
+    id: string;
+    anchor: HTMLElement;
+  } | null>(null);
+  const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
   const assignableCrises = crises.filter(
     (crisis) => !crisis.is_unlisted && crisis.status === "active",
@@ -78,6 +117,7 @@ export default function UnlistedReportsPanel({
     try {
       const data = await adminFetchUnlistedReports(token);
       setReports(data);
+      onCountChange?.(data.length);
     } catch (err) {
       setError(
         err instanceof ApiError
@@ -87,7 +127,7 @@ export default function UnlistedReportsPanel({
     } finally {
       setLoading(false);
     }
-  }, [t]);
+  }, [t, onCountChange]);
 
   useEffect(() => {
     void loadReports();
@@ -118,68 +158,68 @@ export default function UnlistedReportsPanel({
           setAddressLabels((prev) => ({ ...prev, [report.id]: label }));
         })
         .catch(() => {
-          // Non-blocking: coords fallback handled in render
+          // fallback to coords in render
         });
     }
 
     return () => controller.abort();
   }, [reports]);
 
-  const openCreateForm = (report: ReportDetail) => {
-    setCreateOpenId(report.id);
-    setCreateForm({
-      name: "",
-      crisisType: "natural_hazard",
-      crisisSubtype: report.nature_of_crisis ?? "",
-      onsetAt: defaultOnsetLocal(),
+  const filtered = useMemo(() => {
+    let list = reports.filter((report) => {
+      if (damageFilter !== "all" && report.damage_level !== damageFilter) {
+        return false;
+      }
+      if (!query.trim()) return true;
+      const q = query.toLowerCase();
+      const place =
+        addressLabels[report.id] ??
+        briefLocationFromAdmin(report.location) ??
+        "";
+      return (
+        report.id.toLowerCase().includes(q) ||
+        infraTypeLabel(report.infra_type).toLowerCase().includes(q) ||
+        (report.nature_of_crisis ?? "").toLowerCase().includes(q) ||
+        place.toLowerCase().includes(q)
+      );
     });
-  };
 
-  const handleAssign = async (reportId: string) => {
+    if (sort === "severe") {
+      list = [...list].sort(
+        (a, b) =>
+          DAMAGE_RANK[b.damage_level] - DAMAGE_RANK[a.damage_level] ||
+          new Date(a.collected_at).getTime() - new Date(b.collected_at).getTime(),
+      );
+    } else {
+      list = [...list].sort(
+        (a, b) =>
+          new Date(b.collected_at).getTime() - new Date(a.collected_at).getTime(),
+      );
+    }
+
+    return list;
+  }, [reports, damageFilter, query, sort, addressLabels]);
+
+  const handleAssign = async (reportId: string, crisisId: string) => {
     const token = getAdminToken();
-    const crisisId = assignCrisisId[reportId];
-    if (!token || !crisisId) return;
+    if (!token) return;
 
     setActionId(reportId);
     setError(null);
     try {
       await adminAssignUnlistedReport(token, reportId, crisisId);
-      setReports((prev) => prev.filter((report) => report.id !== reportId));
-      await onCrisesChange();
-    } catch (err) {
-      setError(
-        err instanceof ApiError
-          ? err.message
-          : t("admin.errors.assignFailed"),
-      );
-    } finally {
-      setActionId(null);
-    }
-  };
-
-  const handleCreateCrisis = async (reportId: string) => {
-    const token = getAdminToken();
-    if (!token || !createForm.name.trim() || !createForm.crisisSubtype.trim()) {
-      return;
-    }
-
-    setActionId(reportId);
-    setError(null);
-    try {
-      await adminCreateCrisisFromReport(token, reportId, {
-        name: createForm.name.trim(),
-        crisis_type: createForm.crisisType,
-        crisis_subtype: createForm.crisisSubtype.trim(),
-        onset_at: toIsoUtcFromLocal(createForm.onsetAt),
+      setReports((prev) => {
+        const next = prev.filter((report) => report.id !== reportId);
+        onCountChange?.(next.length);
+        return next;
       });
-      setReports((prev) => prev.filter((report) => report.id !== reportId));
-      setCreateOpenId(null);
+      if (selectedReportId === reportId) {
+        closeReportDetail();
+      }
       await onCrisesChange();
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : t("admin.errors.createFromReportFailed"),
+        err instanceof ApiError ? err.message : t("admin.errors.assignFailed"),
       );
     } finally {
       setActionId(null);
@@ -196,275 +236,413 @@ export default function UnlistedReportsPanel({
     setError(null);
     try {
       await adminDeleteUnlistedReport(token, reportId);
-      setReports((prev) => prev.filter((report) => report.id !== reportId));
+      setReports((prev) => {
+        const next = prev.filter((report) => report.id !== reportId);
+        onCountChange?.(next.length);
+        return next;
+      });
+      if (selectedReportId === reportId) {
+        closeReportDetail();
+      }
     } catch (err) {
       setError(
-        err instanceof ApiError
-          ? err.message
-          : t("admin.errors.deleteFailed"),
+        err instanceof ApiError ? err.message : t("admin.errors.deleteFailed"),
       );
     } finally {
       setActionId(null);
     }
   };
 
+  const closePops = () => {
+    setAssignPop(null);
+    setMenuPop(null);
+  };
+
+  const openReportDetail = (reportId: string) => {
+    closePops();
+    setSelectedReportId(reportId);
+  };
+
+  const closeReportDetail = () => {
+    setSelectedReportId(null);
+  };
+
+  const selectedReport = selectedReportId
+    ? reports.find((r) => r.id === selectedReportId) ?? null
+    : null;
+
+  const activeReport = assignPop
+    ? reports.find((r) => r.id === assignPop.id)
+    : menuPop
+      ? reports.find((r) => r.id === menuPop.id)
+      : null;
+
   return (
-    <section className="mx-auto w-full max-w-5xl px-6 pb-8">
-      <div className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-panel">
-        <div className="flex items-center justify-between gap-2">
-          <div>
-            <h2 className="text-base font-semibold text-white">
-              {t("admin.unlistedReports")}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">
-              {t("admin.unlistedReportsHint")}
-            </p>
-          </div>
-          <button
-            type="button"
-            onClick={() => void loadReports()}
-            disabled={loading}
-            className="text-xs text-accent hover:underline disabled:opacity-50"
+    <>
+      <p className="admin-view-note">{t("admin.unlistedViewNote")}</p>
+
+      <div className="admin-toolbar">
+        <div className="admin-search">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            aria-hidden
           >
-            {t("nav.refresh")}
-          </button>
+            <circle cx="11" cy="11" r="7" />
+            <path d="m20 20-3-3" />
+          </svg>
+          <input
+            className="field"
+            value={query}
+            onChange={(e) => setQuery(e.target.value)}
+            placeholder={t("admin.searchUnlisted")}
+          />
         </div>
 
-        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
+        <div className="seg-chips">
+          {(
+            [
+              { key: "all", label: t("admin.filterAll") },
+              { key: "complete", label: t("damage.complete"), className: "dmg-complete", dot: "var(--dmg-complete)" },
+              { key: "partial", label: t("damage.partial"), className: "dmg-partial", dot: "var(--dmg-partial)" },
+              { key: "minimal", label: t("damage.minimal"), className: "dmg-minimal", dot: "var(--dmg-minimal)" },
+            ] as const
+          ).map((chip) => (
+            <button
+              key={chip.key}
+              type="button"
+              className={`chip ${damageFilter === chip.key ? "on" : ""} ${chip.key !== "all" ? chip.className : ""}`}
+              onClick={() => setDamageFilter(chip.key)}
+            >
+              {chip.key !== "all" && (
+                <span className="cdot" style={{ background: chip.dot }} />
+              )}
+              {chip.label}
+            </button>
+          ))}
+        </div>
+
+        <div className="sort">
+          <span className="label">{t("admin.sort")}</span>
+          <select
+            className="field"
+            value={sort}
+            onChange={(e) => setSort(e.target.value as SortKey)}
+          >
+            <option value="newest">{t("admin.sortNewest")}</option>
+            <option value="severe">{t("admin.sortSevere")}</option>
+          </select>
+        </div>
+      </div>
+
+      {error && (
+        <p style={{ color: "var(--dmg-complete-ink)", marginBottom: 12, fontSize: 14 }}>
+          {error}
+        </p>
+      )}
+
+      <div className="admin-table">
+        <div className="admin-thead admin-uthead">
+          <span>{t("admin.colReport")}</span>
+          <span>{t("admin.colCause")}</span>
+          <span>{t("admin.colLocation")}</span>
+          <span>{t("admin.colSubmitted")}</span>
+          <span style={{ textAlign: "right" }}>{t("admin.colAssign")}</span>
+        </div>
 
         {loading ? (
-          <div className="mt-4 space-y-2">
-            {Array.from({ length: 3 }).map((_, i) => (
-              <div
-                key={i}
-                className="h-24 animate-pulse rounded-lg bg-surface-border/60"
-              />
-            ))}
+          <div className="admin-empty">{t("admin.loading")}</div>
+        ) : filtered.length === 0 ? (
+          <div className="admin-empty">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M20 6 9 17l-5-5" />
+            </svg>
+            {t("admin.unlistedAllAssigned")}
           </div>
-        ) : reports.length === 0 ? (
-          <p className="mt-4 text-sm text-slate-500">
-            {t("admin.unlistedReportsEmpty")}
-          </p>
         ) : (
-          <>
-            <p className="mt-3 text-xs text-slate-400">
-              {t("admin.unlistedReportCount", { count: reports.length })}
-            </p>
-            <ul className="mt-3 space-y-3">
-              {reports.map((report) => {
-                const urls = photoUrls(report);
-                const locationLabel =
-                  addressLabels[report.id] ??
-                  briefLocationFromAdmin(report.location);
-                const busy = actionId === report.id;
-                const activePhoto = photoIndex[report.id] ?? 0;
+          filtered.map((report) => {
+            const dmgClass = damageLevelClass(report.damage_level);
+            const InfraIcon = INFRA_ICONS[report.infra_type] ?? MoreHorizontal;
+            const locationLabel =
+              addressLabels[report.id] ??
+              briefLocationFromAdmin(report.location) ??
+              t("admin.unlistedNoLocation");
+            const busy = actionId === report.id;
+            const lat = report.location?.latitude;
+            const lng = report.location?.longitude;
+            const reporter =
+              report.reporter_name && report.reporter_name !== "anonymous"
+                ? report.reporter_name
+                : t("admin.anonymous");
 
-                return (
-                  <li
-                    key={report.id}
-                    className="rounded-lg border border-surface-border bg-surface/50 p-4"
+            return (
+              <div
+                key={report.id}
+                role="button"
+                tabIndex={0}
+                className={`admin-trow admin-urow ${selectedReportId === report.id ? "selected" : ""}`}
+                onClick={(e) => {
+                  if ((e.target as HTMLElement).closest("button, a")) return;
+                  openReportDetail(report.id);
+                }}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    openReportDetail(report.id);
+                  }
+                }}
+              >
+                <div className="admin-u-report">
+                  <span className={`admin-u-swatch ${dmgClass}`}>
+                    <InfraIcon strokeWidth={2} />
+                  </span>
+                  <span style={{ minWidth: 0 }}>
+                    <div className="un">
+                      {damageLevelLabel(report.damage_level)}{" "}
+                      <span className="ui">{report.id.slice(0, 8)}</span>
+                    </div>
+                    <div className="us">
+                      {infraTypeLabel(report.infra_type, report.infra_subtype)} ·{" "}
+                      {reporter}
+                    </div>
+                  </span>
+                </div>
+
+                <div className="admin-c-onset">
+                  <b>{report.nature_of_crisis ?? t("admin.unknownCause")}</b>
+                </div>
+
+                <div className="admin-c-loc">
+                  <b>{locationLabel}</b>
+                  {lat != null && lng != null && (
+                    <div className="coords">
+                      {lat.toFixed(4)}, {lng.toFixed(4)}
+                    </div>
+                  )}
+                </div>
+
+                <div className="admin-c-onset">
+                  {relativeTime(report.collected_at)}
+                </div>
+
+                <div className="admin-u-actions">
+                  <button
+                    type="button"
+                    className="icon-btn sm"
+                    title={t("admin.viewReport")}
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      openReportDetail(report.id);
+                    }}
                   >
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <p className="text-sm font-medium text-white">
-                          {damageLevelLabel(report.damage_level)} ·{" "}
-                          {infraTypeLabel(report.infra_type)}
-                        </p>
-                        <p className="mt-0.5 text-xs text-slate-500">
-                          {locationLabel ?? t("admin.unlistedNoLocation")}
-                        </p>
-                        {report.nature_of_crisis && (
-                          <p className="mt-1 text-xs text-slate-400">
-                            {t("reportDetail.nature")}: {report.nature_of_crisis}
-                          </p>
-                        )}
-                        {report.description_raw && (
-                          <p className="mt-1 line-clamp-2 text-xs text-slate-400">
-                            {report.description_raw}
-                          </p>
-                        )}
-                        <p className="mt-1 text-[11px] text-slate-600">
-                          {new Date(report.collected_at).toLocaleString()}
-                          {report.reporter_name !== "anonymous" &&
-                            ` · ${report.reporter_name}`}
-                        </p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void handleDelete(report.id)}
-                        disabled={busy}
-                        className="inline-flex items-center gap-1 rounded-lg border border-red-500/30 px-2 py-1 text-xs text-red-300 transition hover:bg-red-950/40 disabled:opacity-50"
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                        {t("admin.unlistedRemove")}
-                      </button>
-                    </div>
-
-                    {urls.length > 0 && (
-                      <div className="mt-3 max-w-sm">
-                        <PhotoGallery
-                          photos={urls}
-                          activeIndex={activePhoto}
-                          onIndexChange={(index) =>
-                            setPhotoIndex((prev) => ({
-                              ...prev,
-                              [report.id]: index,
-                            }))
-                          }
-                          compact
-                        />
-                      </div>
-                    )}
-
-                    <div className="mt-4 space-y-3 border-t border-surface-border pt-4">
-                      <div>
-                        <p className="mb-1.5 text-xs text-slate-400">
-                          {t("admin.unlistedAssignExisting")}
-                        </p>
-                        <div className="flex flex-wrap gap-2">
-                          <select
-                            value={assignCrisisId[report.id] ?? ""}
-                            onChange={(e) =>
-                              setAssignCrisisId((prev) => ({
-                                ...prev,
-                                [report.id]: e.target.value,
-                              }))
-                            }
-                            disabled={busy || assignableCrises.length === 0}
-                            className="min-w-0 flex-1 rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent disabled:opacity-50"
-                          >
-                            <option value="">
-                              {assignableCrises.length === 0
-                                ? t("admin.unlistedNoCrises")
-                                : t("admin.unlistedSelectCrisis")}
-                            </option>
-                            {assignableCrises.map((crisis) => (
-                              <option key={crisis.id} value={crisis.id}>
-                                {crisis.name}
-                              </option>
-                            ))}
-                          </select>
-                          <button
-                            type="button"
-                            onClick={() => void handleAssign(report.id)}
-                            disabled={
-                              busy ||
-                              !assignCrisisId[report.id] ||
-                              assignableCrises.length === 0
-                            }
-                            className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition hover:bg-accent-muted disabled:opacity-50"
-                          >
-                            <Link2 className="h-4 w-4" />
-                            {t("admin.unlistedAssign")}
-                          </button>
-                        </div>
-                      </div>
-
-                      <div>
-                        {createOpenId !== report.id ? (
-                          <button
-                            type="button"
-                            onClick={() => openCreateForm(report)}
-                            disabled={busy}
-                            className="inline-flex items-center gap-1.5 text-xs text-accent hover:underline disabled:opacity-50"
-                          >
-                            <Plus className="h-3.5 w-3.5" />
-                            {t("admin.unlistedCreateCrisis")}
-                          </button>
-                        ) : (
-                          <div className="space-y-2 rounded-lg border border-surface-border bg-surface p-3">
-                            <p className="text-xs font-medium text-slate-300">
-                              {t("admin.unlistedCreateCrisisTitle")}
-                            </p>
-                            <input
-                              type="text"
-                              value={createForm.name}
-                              onChange={(e) =>
-                                setCreateForm((prev) => ({
-                                  ...prev,
-                                  name: e.target.value,
-                                }))
-                              }
-                              placeholder={t("admin.fieldName")}
-                              className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-white outline-none focus:border-accent"
-                            />
-                            <select
-                              value={createForm.crisisType}
-                              onChange={(e) =>
-                                setCreateForm((prev) => ({
-                                  ...prev,
-                                  crisisType: e.target.value as CrisisType,
-                                }))
-                              }
-                              className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-white outline-none focus:border-accent"
-                            >
-                              {CRISIS_TYPES.map((type) => (
-                                <option key={type} value={type}>
-                                  {t(`admin.crisisType.${type}`)}
-                                </option>
-                              ))}
-                            </select>
-                            <input
-                              type="text"
-                              value={createForm.crisisSubtype}
-                              onChange={(e) =>
-                                setCreateForm((prev) => ({
-                                  ...prev,
-                                  crisisSubtype: e.target.value,
-                                }))
-                              }
-                              placeholder={t("admin.subtypePlaceholder")}
-                              className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-white outline-none focus:border-accent"
-                            />
-                            <input
-                              type="datetime-local"
-                              value={createForm.onsetAt}
-                              onChange={(e) =>
-                                setCreateForm((prev) => ({
-                                  ...prev,
-                                  onsetAt: e.target.value,
-                                }))
-                              }
-                              className="w-full rounded-lg border border-surface-border bg-surface-raised px-3 py-2 text-sm text-white outline-none focus:border-accent"
-                            />
-                            <p className="text-[11px] text-slate-500">
-                              {t("admin.unlistedCreateCrisisHint")}
-                            </p>
-                            <div className="flex gap-2">
-                              <button
-                                type="button"
-                                onClick={() => void handleCreateCrisis(report.id)}
-                                disabled={
-                                  busy ||
-                                  !createForm.name.trim() ||
-                                  !createForm.crisisSubtype.trim()
-                                }
-                                className="rounded-lg bg-accent px-3 py-2 text-sm font-medium text-white transition hover:bg-accent-muted disabled:opacity-50"
-                              >
-                                {busy
-                                  ? t("admin.creating")
-                                  : t("admin.unlistedCreateAndAssign")}
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setCreateOpenId(null)}
-                                disabled={busy}
-                                className="rounded-lg border border-surface-border px-3 py-2 text-sm text-slate-300 hover:text-white disabled:opacity-50"
-                              >
-                                {t("admin.cancel")}
-                              </button>
-                            </div>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </li>
-                );
-              })}
-            </ul>
-          </>
+                    <Eye strokeWidth={2} />
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-sm btn-primary"
+                    disabled={busy || assignableCrises.length === 0}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setMenuPop(null);
+                      setAssignPop({ id: report.id, anchor: e.currentTarget });
+                    }}
+                  >
+                    <Link2 strokeWidth={2} />
+                    {t("admin.unlistedAssign")}
+                    <ChevronDown className="chev" strokeWidth={2.4} />
+                  </button>
+                  <button
+                    type="button"
+                    className="icon-btn sm"
+                    title={t("admin.moreActions")}
+                    disabled={busy}
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setAssignPop(null);
+                      setMenuPop({ id: report.id, anchor: e.currentTarget });
+                    }}
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      fill="none"
+                      stroke="currentColor"
+                      strokeWidth="2"
+                      aria-hidden
+                    >
+                      <circle cx="12" cy="5" r="1.4" />
+                      <circle cx="12" cy="12" r="1.4" />
+                      <circle cx="12" cy="19" r="1.4" />
+                    </svg>
+                  </button>
+                </div>
+              </div>
+            );
+          })
         )}
       </div>
-    </section>
+
+      <PopoverMenu
+        anchor={assignPop?.anchor ?? null}
+        open={Boolean(assignPop && activeReport)}
+        onClose={closePops}
+      >
+        <div className="pop-label">{t("admin.assignToCrisis")}</div>
+        {assignableCrises.map((crisis) => {
+          const iconClass = crisisTypeIconClass(crisis.crisis_type);
+          const TypeIcon = TYPE_ICONS[iconClass];
+          return (
+            <button
+              key={crisis.id}
+              type="button"
+              onClick={() => {
+                if (assignPop) void handleAssign(assignPop.id, crisis.id);
+                closePops();
+              }}
+            >
+              <span
+                className={`tico ${iconClass}`}
+                style={{
+                  width: 24,
+                  height: 24,
+                  borderRadius: 7,
+                  display: "grid",
+                  placeItems: "center",
+                }}
+              >
+                <TypeIcon width={13} height={13} strokeWidth={2} />
+              </span>
+              <span
+                style={{
+                  minWidth: 0,
+                  overflow: "hidden",
+                  textOverflow: "ellipsis",
+                  whiteSpace: "nowrap",
+                }}
+              >
+                {crisis.name}
+              </span>
+            </button>
+          );
+        })}
+        <div className="sep" />
+        <button
+          type="button"
+          style={{ color: "var(--accent)", fontWeight: 600 }}
+          onClick={() => {
+            if (activeReport && onCreateFromReport) {
+              onCreateFromReport(activeReport);
+            }
+            closePops();
+          }}
+        >
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            aria-hidden
+          >
+            <path d="M12 5v14M5 12h14" />
+          </svg>
+          {t("admin.createNewFromReport")}
+        </button>
+      </PopoverMenu>
+
+      <PopoverMenu
+        anchor={menuPop?.anchor ?? null}
+        open={Boolean(menuPop && activeReport)}
+        onClose={closePops}
+      >
+        {activeReport && (
+          <>
+            <button
+              type="button"
+              onClick={() => {
+                openReportDetail(activeReport.id);
+                closePops();
+              }}
+            >
+              <Eye strokeWidth={2} />
+              {t("admin.viewReport")}
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                onCreateFromReport?.(activeReport);
+                closePops();
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.2"
+                strokeLinecap="round"
+                aria-hidden
+              >
+                <path d="M12 5v14M5 12h14" />
+              </svg>
+              {t("admin.createCrisisFromReport")}
+            </button>
+            <div className="sep" />
+            <button
+              type="button"
+              className="danger"
+              onClick={() => {
+                void handleDelete(activeReport.id);
+                closePops();
+              }}
+            >
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="m6 6 12 12M18 6 6 18" />
+              </svg>
+              {t("admin.dismissReport")}
+            </button>
+          </>
+        )}
+      </PopoverMenu>
+
+      <AdminReportDetailPanel
+        reportId={selectedReportId}
+        open={Boolean(selectedReportId)}
+        onClose={closeReportDetail}
+        onAssign={(anchor) => {
+          if (selectedReportId) {
+            setAssignPop({ id: selectedReportId, anchor });
+          }
+        }}
+        onCreateCrisis={() => {
+          if (selectedReport) {
+            closeReportDetail();
+            onCreateFromReport?.(selectedReport);
+          }
+        }}
+        onDismiss={() => {
+          if (selectedReportId) void handleDelete(selectedReportId);
+        }}
+        assignDisabled={assignableCrises.length === 0}
+        actionDisabled={Boolean(actionId)}
+      />
+    </>
   );
 }

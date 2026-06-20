@@ -1,16 +1,24 @@
-import { Download, Lock, LogOut, Plus, Shield } from "lucide-react";
-import { useCallback, useEffect, useRef, useState } from "react";
+import {
+  Archive,
+  CheckCircle2,
+  Clock,
+  Download,
+  Lock,
+  LogOut,
+  MapPin,
+  Plus,
+} from "lucide-react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
   ApiError,
   adminCreateCrisis,
+  adminCreateCrisisFromReport,
   adminFetchCrises,
   adminLogin,
   adminUpdateCrisis,
   fetchReverseGeocode,
-  searchPlaces,
-  type PlaceSearchResult,
 } from "../api/client";
 import {
   clearAdminToken,
@@ -18,23 +26,21 @@ import {
   isAdminAuthenticated,
   setAdminToken,
 } from "../lib/adminAuth";
-import { getCurrentLocation } from "../lib/geolocation";
-import type { Crisis, CrisisStatus, CrisisType } from "../types/report";
+import {
+  fetchAllCrisisReportStats,
+  type CrisisReportStats,
+} from "../lib/adminCrisisStats";
+import { shortAddress } from "../lib/address";
+import type { Crisis, CrisisStatus, ReportDetail } from "../types/report";
+import AdminCrisisPanel, {
+  type CrisisPanelValues,
+} from "./AdminCrisisPanel";
+import AdminCrisesTable from "./AdminCrisesTable";
 import CrisisExportModal from "./CrisisExportModal";
-import ReportLocationPicker from "./ReportLocationPicker";
+import ThemeToggle from "./ThemeToggle";
 import UnlistedReportsPanel from "./UnlistedReportsPanel";
 
-const CRISIS_TYPES: CrisisType[] = [
-  "natural_hazard",
-  "technological",
-  "human_made",
-];
-
-function defaultOnsetLocal(): string {
-  const now = new Date();
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset());
-  return now.toISOString().slice(0, 16);
-}
+type AdminView = "crises" | "unlisted";
 
 function toIsoUtcFromLocal(value: string): string {
   return new Date(value).toISOString();
@@ -48,117 +54,27 @@ export default function AdminPage() {
   const [loginLoading, setLoginLoading] = useState(false);
 
   const [crises, setCrises] = useState<Crisis[]>([]);
+  const [stats, setStats] = useState<Record<string, CrisisReportStats>>({});
   const [listLoading, setListLoading] = useState(false);
   const [listError, setListError] = useState<string | null>(null);
   const [savingId, setSavingId] = useState<string | null>(null);
+  const [placeLabels, setPlaceLabels] = useState<Record<string, string>>({});
   const adminToken = getAdminToken();
 
-  const [name, setName] = useState("");
-  const [crisisType, setCrisisType] = useState<CrisisType>("natural_hazard");
-  const [crisisSubtype, setCrisisSubtype] = useState("");
-  const [onsetAt, setOnsetAt] = useState(defaultOnsetLocal);
-  const [createLoading, setCreateLoading] = useState(false);
-  const [createError, setCreateError] = useState<string | null>(null);
-  const [createSuccess, setCreateSuccess] = useState<string | null>(null);
-
-  const [latitude, setLatitude] = useState("");
-  const [longitude, setLongitude] = useState("");
-  const [placeLabel, setPlaceLabel] = useState("");
-  const [locationStatus, setLocationStatus] = useState<
-    "idle" | "detecting" | "detected" | "failed"
-  >("idle");
-  const [addressQuery, setAddressQuery] = useState("");
-  const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
-  const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const [view, setView] = useState<AdminView>("crises");
+  const [unlistedCount, setUnlistedCount] = useState(0);
   const [exportOpen, setExportOpen] = useState(false);
-  const gpsAttemptedRef = useRef(false);
 
-  const resetLocation = useCallback(() => {
-    setLatitude("");
-    setLongitude("");
-    setPlaceLabel("");
-    setLocationStatus("idle");
-    setAddressQuery("");
-    setPlaceResults([]);
-    gpsAttemptedRef.current = false;
-  }, []);
+  const [panelOpen, setPanelOpen] = useState(false);
+  const [editingCrisis, setEditingCrisis] = useState<Crisis | null>(null);
+  const [fromReport, setFromReport] = useState<ReportDetail | null>(null);
+  const [panelLoading, setPanelLoading] = useState(false);
+  const [panelError, setPanelError] = useState<string | null>(null);
 
-  const detectLocation = useCallback(async () => {
-    setLocationStatus("detecting");
-    try {
-      const coords = await getCurrentLocation();
-      setLatitude(coords.latitude.toFixed(6));
-      setLongitude(coords.longitude.toFixed(6));
-      setLocationStatus("detected");
-      try {
-        const geo = await fetchReverseGeocode(coords.latitude, coords.longitude);
-        setPlaceLabel(geo.display_name ?? "");
-        setAddressQuery(geo.display_name ?? "");
-      } catch {
-        setPlaceLabel("");
-      }
-    } catch {
-      setLocationStatus("failed");
-      setPlaceLabel("");
-    }
-  }, []);
-
-  useEffect(() => {
-    if (!authenticated || gpsAttemptedRef.current) return;
-    gpsAttemptedRef.current = true;
-    void detectLocation();
-  }, [authenticated, detectLocation]);
-
-  useEffect(() => {
-    const query = addressQuery.trim();
-    if (query.length < 2) {
-      setPlaceResults([]);
-      setSearchingPlaces(false);
-      return;
-    }
-
-    const controller = new AbortController();
-    setSearchingPlaces(true);
-
-    const timer = window.setTimeout(() => {
-      searchPlaces(query, 5, controller.signal)
-        .then((results) => setPlaceResults(results))
-        .catch((err) => {
-          if (err.name === "AbortError") return;
-          setPlaceResults([]);
-        })
-        .finally(() => setSearchingPlaces(false));
-    }, 350);
-
-    return () => {
-      window.clearTimeout(timer);
-      controller.abort();
-    };
-  }, [addressQuery]);
-
-  const selectPlace = (place: PlaceSearchResult) => {
-    setLatitude(String(place.latitude));
-    setLongitude(String(place.longitude));
-    setPlaceLabel(place.display_name);
-    setLocationStatus("detected");
-    setAddressQuery(place.display_name);
-    setPlaceResults([]);
-  };
-
-  const handleMapPick = (lat: number, lng: number) => {
-    setLatitude(lat.toFixed(6));
-    setLongitude(lng.toFixed(6));
-    setLocationStatus("detected");
-    void fetchReverseGeocode(lat, lng)
-      .then((geo) => {
-        const label = geo.display_name ?? t("map.pickedLocation");
-        setPlaceLabel(label);
-        setAddressQuery(label);
-      })
-      .catch(() => {
-        setPlaceLabel(t("map.pickedLocation"));
-      });
-  };
+  const listedCrises = useMemo(
+    () => crises.filter((c) => !c.is_unlisted),
+    [crises],
+  );
 
   const loadCrises = useCallback(async () => {
     const token = getAdminToken();
@@ -172,6 +88,10 @@ export default function AdminPage() {
     try {
       const data = await adminFetchCrises(token);
       setCrises(data);
+
+      const listed = data.filter((c) => !c.is_unlisted);
+      const nextStats = await fetchAllCrisisReportStats(listed.map((c) => c.id));
+      setStats(nextStats);
       setAuthenticated(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === "UNAUTHORIZED") {
@@ -192,6 +112,31 @@ export default function AdminPage() {
       void loadCrises();
     }
   }, [authenticated, loadCrises]);
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    for (const crisis of listedCrises) {
+      const lat = crisis.epicenter_lat;
+      const lng = crisis.epicenter_lng;
+      if (lat == null || lng == null || (lat === 0 && lng === 0)) continue;
+
+      void fetchReverseGeocode(lat, lng, controller.signal)
+        .then((geo) => {
+          const name = geo.display_name?.trim();
+          if (!name) return;
+          setPlaceLabels((prev) => ({
+            ...prev,
+            [crisis.id]: shortAddress(name, 2),
+          }));
+        })
+        .catch(() => {
+          // coords fallback in table
+        });
+    }
+
+    return () => controller.abort();
+  }, [listedCrises]);
 
   const handleLogin = async (event: React.FormEvent) => {
     event.preventDefault();
@@ -215,43 +160,83 @@ export default function AdminPage() {
     clearAdminToken();
     setAuthenticated(false);
     setCrises([]);
+    setStats({});
   };
 
-  const handleCreate = async (event: React.FormEvent) => {
-    event.preventDefault();
+  const openCreatePanel = () => {
+    setEditingCrisis(null);
+    setFromReport(null);
+    setPanelError(null);
+    setPanelOpen(true);
+  };
+
+  const openEditPanel = (crisis: Crisis) => {
+    setEditingCrisis(crisis);
+    setFromReport(null);
+    setPanelError(null);
+    setPanelOpen(true);
+  };
+
+  const openCreateFromReport = (report: ReportDetail) => {
+    setEditingCrisis(null);
+    setFromReport(report);
+    setPanelError(null);
+    setPanelOpen(true);
+  };
+
+  const closePanel = () => {
+    setPanelOpen(false);
+    setEditingCrisis(null);
+    setFromReport(null);
+    setPanelError(null);
+  };
+
+  const handlePanelSave = async (values: CrisisPanelValues) => {
     const token = getAdminToken();
     if (!token) return;
 
-    setCreateLoading(true);
-    setCreateError(null);
-    setCreateSuccess(null);
+    setPanelLoading(true);
+    setPanelError(null);
+
     try {
-      const hasCoords = Boolean(latitude && longitude);
-      const created = await adminCreateCrisis(token, {
-        name: name.trim(),
-        crisis_type: crisisType,
-        crisis_subtype: crisisSubtype.trim(),
-        onset_at: toIsoUtcFromLocal(onsetAt),
-        ...(hasCoords
-          ? {
-              epicenter_lat: Number(latitude),
-              epicenter_lng: Number(longitude),
-            }
-          : {}),
-      });
-      setCreateSuccess(t("admin.createSuccess", { name: created.name }));
-      setName("");
-      setCrisisSubtype("");
-      setOnsetAt(defaultOnsetLocal());
-      resetLocation();
-      void detectLocation();
+      const hasCoords = Boolean(values.latitude && values.longitude);
+      const coords = hasCoords
+        ? {
+            epicenter_lat: Number(values.latitude),
+            epicenter_lng: Number(values.longitude),
+          }
+        : {};
+
+      if (editingCrisis) {
+        await adminUpdateCrisis(token, editingCrisis.id, {
+          name: values.name.trim(),
+        });
+      } else if (fromReport) {
+        await adminCreateCrisisFromReport(token, fromReport.id, {
+          name: values.name.trim(),
+          crisis_type: values.crisisType,
+          crisis_subtype: values.crisisSubtype.trim(),
+          onset_at: toIsoUtcFromLocal(values.onsetAt),
+          ...coords,
+        });
+      } else {
+        await adminCreateCrisis(token, {
+          name: values.name.trim(),
+          crisis_type: values.crisisType,
+          crisis_subtype: values.crisisSubtype.trim(),
+          onset_at: toIsoUtcFromLocal(values.onsetAt),
+          ...coords,
+        });
+      }
+
+      closePanel();
       await loadCrises();
     } catch (err) {
-      setCreateError(
+      setPanelError(
         err instanceof ApiError ? err.message : t("admin.errors.createFailed"),
       );
     } finally {
-      setCreateLoading(false);
+      setPanelLoading(false);
     }
   };
 
@@ -277,279 +262,270 @@ export default function AdminPage() {
     }
   };
 
+  const kpiStats = useMemo(() => {
+    const active = listedCrises.filter((c) => c.status === "active").length;
+    const closed = listedCrises.length - active;
+    const reports = Object.values(stats).reduce((sum, s) => sum + s.total, 0);
+    return {
+      total: listedCrises.length,
+      active,
+      closed,
+      reports,
+    };
+  }, [listedCrises, stats]);
+
   if (!authenticated) {
     return (
-      <div className="flex min-h-full flex-col bg-surface">
-        <header className="border-b border-surface-border bg-surface-raised/80 px-6 py-4">
-          <div className="mx-auto flex max-w-lg items-center justify-between">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/20">
-                <Shield className="h-5 w-5 text-accent" />
-              </div>
-              <div>
-                <h1 className="text-lg font-semibold text-white">{t("admin.title")}</h1>
-                <p className="text-xs text-slate-400">{t("admin.loginSubtitle")}</p>
-              </div>
-            </div>
-            <Link to="/" className="text-sm text-slate-400 hover:text-white">
-              {t("nav.backToDashboard")}
-            </Link>
+      <div className="admin-app">
+        <header className="admin-topbar">
+          <div className="dashboard-brand">
+            <span className="mark">
+              <svg
+                viewBox="0 0 24 24"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="2.1"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                aria-hidden
+              >
+                <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" />
+                <path d="M9 4v14M15 6v14" />
+              </svg>
+            </span>
+            <span>
+              <div className="bt">{t("app.name")}</div>
+              <div className="bs">{t("admin.consoleSubtitle")}</div>
+            </span>
           </div>
+          <div className="spacer" />
+          <Link to="/" className="backlink">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
+            >
+              <path d="M19 12H5M12 19l-7-7 7-7" />
+            </svg>
+            {t("nav.backToDashboard")}
+          </Link>
         </header>
 
-        <main className="mx-auto flex w-full max-w-lg flex-1 items-center px-6 py-10">
-          <form
-            onSubmit={(e) => void handleLogin(e)}
-            className="w-full rounded-xl border border-surface-border bg-surface-raised p-6 shadow-panel"
-          >
-            <label className="block text-sm text-slate-300">
-              {t("admin.passwordLabel")}
-              <div className="relative mt-2">
-                <Lock className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+        <div className="admin-login-wrap">
+          <form className="admin-login-card" onSubmit={(e) => void handleLogin(e)}>
+            <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>
+              {t("admin.title")}
+            </h1>
+            <p style={{ margin: "0 0 20px", color: "var(--text-dim)", fontSize: 14 }}>
+              {t("admin.loginSubtitle")}
+            </p>
+
+            <label className="admin-fieldset">
+              <span className="label">{t("admin.passwordLabel")}</span>
+              <div style={{ position: "relative", marginTop: 7 }}>
+                <Lock
+                  style={{
+                    position: "absolute",
+                    left: 13,
+                    top: "50%",
+                    transform: "translateY(-50%)",
+                    width: 16,
+                    height: 16,
+                    color: "var(--text-faint)",
+                  }}
+                />
                 <input
                   type="password"
+                  className="field"
+                  style={{ paddingLeft: 40 }}
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   autoComplete="current-password"
                   required
-                  className="w-full rounded-lg border border-surface-border bg-surface py-2.5 ps-10 pe-3 text-sm text-white outline-none focus:border-accent"
                 />
               </div>
             </label>
 
             {loginError && (
-              <p className="mt-3 text-sm text-red-300">{loginError}</p>
+              <p style={{ color: "var(--dmg-complete-ink)", fontSize: 14, marginTop: 12 }}>
+                {loginError}
+              </p>
             )}
 
             <button
               type="submit"
+              className="btn btn-primary btn-block"
+              style={{ marginTop: 16 }}
               disabled={loginLoading || !password}
-              className="mt-4 w-full rounded-lg bg-accent py-2.5 text-sm font-medium text-white transition hover:bg-accent-muted disabled:opacity-50"
             >
               {loginLoading ? t("admin.signingIn") : t("admin.signIn")}
             </button>
           </form>
-        </main>
+        </div>
       </div>
     );
   }
 
   return (
-    <div className="flex min-h-full flex-col bg-surface">
-      <header className="border-b border-surface-border bg-surface-raised/80 px-6 py-4">
-        <div className="mx-auto flex max-w-5xl items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-accent/20">
-              <Shield className="h-5 w-5 text-accent" />
-            </div>
-            <div>
-              <h1 className="text-lg font-semibold text-white">{t("admin.title")}</h1>
-              <p className="text-xs text-slate-400">{t("admin.subtitle")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            <Link to="/" className="text-sm text-slate-400 hover:text-white">
-              {t("nav.backToDashboard")}
-            </Link>
-            <button
-              type="button"
-              onClick={() => setExportOpen(true)}
-              className="inline-flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-white"
+    <div className="admin-app">
+      <header className="admin-topbar">
+        <div className="dashboard-brand">
+          <span className="mark">
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.1"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              aria-hidden
             >
-              <Download className="h-4 w-4" />
-              {t("export.openModal")}
-            </button>
-            <button
-              type="button"
-              onClick={handleLogout}
-              className="inline-flex items-center gap-2 rounded-lg border border-surface-border px-3 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-white"
-            >
-              <LogOut className="h-4 w-4" />
-              {t("admin.signOut")}
-            </button>
-          </div>
+              <path d="M9 4 3 6v14l6-2 6 2 6-2V4l-6 2-6-2Z" />
+              <path d="M9 4v14M15 6v14" />
+            </svg>
+          </span>
+          <span>
+            <div className="bt">{t("app.name")}</div>
+            <div className="bs">{t("admin.consoleSubtitle")}</div>
+          </span>
         </div>
+        <div className="spacer" />
+        <Link to="/" className="backlink">
+          <svg
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+            aria-hidden
+          >
+            <path d="M19 12H5M12 19l-7-7 7-7" />
+          </svg>
+          {t("nav.backToDashboard")}
+        </Link>
+        <ThemeToggle />
+        <button
+          type="button"
+          className="btn btn-sm hide-sm"
+          onClick={() => setExportOpen(true)}
+        >
+          <Download strokeWidth={2} />
+          {t("export.openModal")}
+        </button>
+        <button type="button" className="btn btn-sm hide-sm" onClick={handleLogout}>
+          <LogOut strokeWidth={2} />
+          {t("admin.signOut")}
+        </button>
       </header>
 
-      <main className="mx-auto grid w-full max-w-5xl flex-1 gap-6 px-6 py-8 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.2fr)]">
-        <section className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-panel">
-          <h2 className="flex items-center gap-2 text-base font-semibold text-white">
-            <Plus className="h-4 w-4 text-accent" />
-            {t("admin.createCrisis")}
-          </h2>
-          <p className="mt-1 text-xs text-slate-500">{t("admin.createHint")}</p>
-
-          <form onSubmit={(e) => void handleCreate(e)} className="mt-4 space-y-3">
-            <label className="block text-xs text-slate-400">
-              {t("admin.fieldName")}
-              <input
-                type="text"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-                maxLength={200}
-                className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
-              />
-            </label>
-
-            <label className="block text-xs text-slate-400">
-              {t("admin.fieldType")}
-              <select
-                value={crisisType}
-                onChange={(e) => setCrisisType(e.target.value as CrisisType)}
-                className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
-              >
-                {CRISIS_TYPES.map((type) => (
-                  <option key={type} value={type}>
-                    {t(`admin.crisisType.${type}`)}
-                  </option>
-                ))}
-              </select>
-            </label>
-
-            <label className="block text-xs text-slate-400">
-              {t("admin.fieldSubtype")}
-              <input
-                type="text"
-                value={crisisSubtype}
-                onChange={(e) => setCrisisSubtype(e.target.value)}
-                required
-                maxLength={50}
-                placeholder={t("admin.subtypePlaceholder")}
-                className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
-              />
-            </label>
-
-            <label className="block text-xs text-slate-400">
-              {t("admin.fieldOnset")}
-              <input
-                type="datetime-local"
-                value={onsetAt}
-                onChange={(e) => setOnsetAt(e.target.value)}
-                required
-                className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
-              />
-            </label>
-
-            <ReportLocationPicker
-              title={t("admin.fieldLocation")}
-              subtitle={t("admin.locationHint")}
-              latitude={latitude}
-              longitude={longitude}
-              placeLabel={placeLabel}
-              locationStatus={locationStatus}
-              addressQuery={addressQuery}
-              placeResults={placeResults}
-              searchingPlaces={searchingPlaces}
-              onAddressQueryChange={setAddressQuery}
-              onSelectPlace={selectPlace}
-              onMapPick={handleMapPick}
-              onUseGps={() => void detectLocation()}
-            />
-
-            {createError && <p className="text-sm text-red-300">{createError}</p>}
-            {createSuccess && (
-              <p className="text-sm text-emerald-300">{createSuccess}</p>
-            )}
-
-            <button
-              type="submit"
-              disabled={createLoading || !name.trim() || !crisisSubtype.trim()}
-              className="w-full rounded-lg bg-accent py-2.5 text-sm font-medium text-white transition hover:bg-accent-muted disabled:opacity-50"
-            >
-              {createLoading ? t("admin.creating") : t("admin.createButton")}
-            </button>
-          </form>
-        </section>
-
-        <section className="rounded-xl border border-surface-border bg-surface-raised p-5 shadow-panel">
-          <div className="flex items-center justify-between gap-2">
-            <h2 className="text-base font-semibold text-white">{t("admin.allCrises")}</h2>
-            <button
-              type="button"
-              onClick={() => void loadCrises()}
-              disabled={listLoading}
-              className="text-xs text-accent hover:underline disabled:opacity-50"
-            >
-              {t("nav.refresh")}
-            </button>
+      <main className="admin-page">
+        <div className="admin-page-head">
+          <div>
+            <h1>{t("admin.pageTitle")}</h1>
+            <p>{t("admin.pageSubtitle")}</p>
           </div>
+          <button type="button" className="btn btn-primary" onClick={openCreatePanel}>
+            <Plus strokeWidth={2.2} />
+            {t("admin.newCrisis")}
+          </button>
+        </div>
 
-          {listError && <p className="mt-3 text-sm text-red-300">{listError}</p>}
-
-          {listLoading ? (
-            <div className="mt-4 space-y-2">
-              {Array.from({ length: 4 }).map((_, i) => (
-                <div
-                  key={i}
-                  className="h-16 animate-pulse rounded-lg bg-surface-border/60"
-                />
-              ))}
+        <div className="admin-kpis">
+          <div className="admin-kpi">
+            <div className="kl">
+              <Archive strokeWidth={2} />
+              {t("admin.kpiTotal")}
             </div>
-          ) : crises.length === 0 ? (
-            <p className="mt-4 text-sm text-slate-500">{t("admin.noCrises")}</p>
-          ) : (
-            <ul className="mt-4 space-y-2">
-              {crises.map((crisis) => (
-                <li
-                  key={crisis.id}
-                  className="rounded-lg border border-surface-border bg-surface/50 p-3"
-                >
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0">
-                      <p className="truncate font-medium text-white">{crisis.name}</p>
-                      <p className="mt-0.5 text-xs text-slate-500">
-                        {t(`admin.crisisType.${crisis.crisis_type}`)} ·{" "}
-                        {crisis.crisis_subtype} ·{" "}
-                        {new Date(crisis.onset_at).toLocaleString()}
-                      </p>
-                      {typeof crisis.epicenter_lat === "number" &&
-                        typeof crisis.epicenter_lng === "number" &&
-                        !(crisis.epicenter_lat === 0 && crisis.epicenter_lng === 0) && (
-                          <p className="mt-0.5 text-[11px] text-slate-600">
-                            {t("admin.epicenterCoords", {
-                              lat: crisis.epicenter_lat.toFixed(4),
-                              lng: crisis.epicenter_lng.toFixed(4),
-                            })}
-                          </p>
-                        )}
-                    </div>
-                    <span
-                      className={`shrink-0 rounded-full px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide ${
-                        crisis.status === "active"
-                          ? "bg-emerald-500/15 text-emerald-400"
-                          : "bg-slate-500/15 text-slate-400"
-                      }`}
-                    >
-                      {t(`admin.status.${crisis.status}`)}
-                    </span>
-                  </div>
+            <div className="kn">{kpiStats.total}</div>
+            <div className="ks">{t("admin.kpiTotalHint")}</div>
+          </div>
+          <div className="admin-kpi accent">
+            <div className="kl">
+              <Clock strokeWidth={2} />
+              {t("admin.kpiActive")}
+            </div>
+            <div className="kn">{kpiStats.active}</div>
+            <div className="ks">{t("admin.kpiActiveHint")}</div>
+          </div>
+          <div className="admin-kpi">
+            <div className="kl">
+              <CheckCircle2 strokeWidth={2} />
+              {t("admin.kpiClosed")}
+            </div>
+            <div className="kn">{kpiStats.closed}</div>
+            <div className="ks">{t("admin.kpiClosedHint")}</div>
+          </div>
+          <div className="admin-kpi">
+            <div className="kl">
+              <MapPin strokeWidth={2} />
+              {t("admin.kpiReports")}
+            </div>
+            <div className="kn">{kpiStats.reports.toLocaleString()}</div>
+            <div className="ks">{t("admin.kpiReportsHint")}</div>
+          </div>
+        </div>
 
-                  <label className="mt-3 block text-xs text-slate-400">
-                    {t("admin.changeStatus")}
-                    <select
-                      value={crisis.status}
-                      disabled={savingId === crisis.id}
-                      onChange={(e) =>
-                        void handleStatusChange(
-                          crisis.id,
-                          e.target.value as CrisisStatus,
-                        )
-                      }
-                      className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent disabled:opacity-50"
-                    >
-                      <option value="active">{t("admin.status.active")}</option>
-                      <option value="closed">{t("admin.status.closed")}</option>
-                    </select>
-                  </label>
-                </li>
-              ))}
-            </ul>
-          )}
-        </section>
+        <div className="admin-tabs">
+          <button
+            type="button"
+            className={`admin-tab ${view === "crises" ? "on" : ""}`}
+            onClick={() => setView("crises")}
+          >
+            {t("admin.allCrises")}
+            <span className="count">{listedCrises.length}</span>
+          </button>
+          <button
+            type="button"
+            className={`admin-tab ${view === "unlisted" ? "on" : ""}`}
+            onClick={() => setView("unlisted")}
+          >
+            {t("admin.unlistedReports")}
+            <span className={`count ${unlistedCount > 0 ? "warn" : ""}`}>
+              {unlistedCount}
+            </span>
+          </button>
+        </div>
+
+        {listError && (
+          <p style={{ color: "var(--dmg-complete-ink)", marginBottom: 16, fontSize: 14 }}>
+            {listError}
+          </p>
+        )}
+
+        {view === "crises" ? (
+          <AdminCrisesTable
+            crises={crises}
+            stats={stats}
+            loading={listLoading}
+            savingId={savingId}
+            placeLabels={placeLabels}
+            onStatusChange={(id, status) => void handleStatusChange(id, status)}
+            onEdit={openEditPanel}
+          />
+        ) : (
+          <UnlistedReportsPanel
+            crises={crises}
+            onCrisesChange={loadCrises}
+            onCountChange={setUnlistedCount}
+            onCreateFromReport={openCreateFromReport}
+          />
+        )}
       </main>
 
-      <UnlistedReportsPanel crises={crises} onCrisesChange={loadCrises} />
+      <AdminCrisisPanel
+        open={panelOpen}
+        editingCrisis={editingCrisis}
+        fromReport={fromReport}
+        loading={panelLoading}
+        error={panelError}
+        onClose={closePanel}
+        onSave={(values) => void handlePanelSave(values)}
+      />
 
       {adminToken && (
         <CrisisExportModal
