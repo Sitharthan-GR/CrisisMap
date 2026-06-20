@@ -1,3 +1,5 @@
+@import "./design.css";
+
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -10,11 +12,15 @@
   }
 
   body {
-    @apply bg-surface font-sans text-slate-100 antialiased;
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--font-ui);
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
   [dir="rtl"] body {
-    font-family: "Noto Sans Arabic", "DM Sans", system-ui, sans-serif;
+    font-family: "Noto Sans Arabic", var(--font-ui), system-ui, sans-serif;
   }
 
   [dir="rtl"] .rtl-flip {

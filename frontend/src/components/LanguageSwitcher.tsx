@@ -11,6 +11,7 @@ import {
 interface LanguageSwitcherProps {
   compact?: boolean;
   className?: string;
+  variant?: "pill" | "button";
 }
 
 interface MenuPosition {
@@ -22,6 +23,7 @@ interface MenuPosition {
 export default function LanguageSwitcher({
   compact = false,
   className = "",
+  variant = "pill",
 }: LanguageSwitcherProps) {
   const { i18n, t } = useTranslation();
   const [open, setOpen] = useState(false);
@@ -94,16 +96,19 @@ export default function LanguageSwitcher({
           <ul
             ref={menuRef}
             role="listbox"
-            style={
-              isRtl
+            className="fixed z-[9999] min-w-[200px] rounded-xl border py-1"
+            style={{
+              ...(isRtl
                 ? { top: menuPos.top, left: menuPos.left }
                 : {
                     top: menuPos.top,
                     left: menuPos.left + menuPos.width,
                     transform: "translateX(-100%)",
-                  }
-            }
-            className="fixed z-[9999] min-w-[200px] rounded-lg border border-surface-border bg-surface-raised py-1 shadow-panel"
+                  }),
+              borderColor: "var(--border)",
+              background: "var(--surface)",
+              boxShadow: "var(--shadow-lg)",
+            }}
           >
             {SUPPORTED_LANGUAGES.map((lang) => {
               const selected = i18n.language === lang.code;
@@ -114,9 +119,12 @@ export default function LanguageSwitcher({
                     role="option"
                     aria-selected={selected}
                     onClick={() => selectLanguage(lang.code)}
-                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-start text-sm transition hover:bg-surface ${
-                      selected ? "bg-accent/10 text-white" : "text-slate-300"
+                    className={`flex w-full items-center justify-between gap-3 px-3 py-2 text-start text-sm transition ${
+                      selected
+                        ? "text-[var(--accent)]"
+                        : "text-[var(--text-dim)] hover:bg-[var(--surface-2)] hover:text-[var(--text)]"
                     }`}
+                    style={selected ? { background: "var(--accent-soft)" } : undefined}
                   >
                     <span>{lang.native}</span>
                     <span className="text-xs uppercase text-slate-500">
@@ -131,20 +139,25 @@ export default function LanguageSwitcher({
         )
       : null;
 
+  const buttonClass =
+    variant === "button"
+      ? "btn btn-sm"
+      : `inline-flex items-center gap-1.5 rounded-full border border-surface-border bg-surface text-slate-300 transition hover:border-slate-500 hover:text-white ${
+          compact ? "px-2.5 py-0.5 text-[11px]" : "px-3 py-1.5 text-xs"
+        }`;
+
   return (
     <div ref={rootRef} className={className}>
       <button
         ref={buttonRef}
         type="button"
         onClick={() => setOpen((value) => !value)}
-        className={`inline-flex items-center gap-1.5 rounded-full border border-surface-border bg-surface text-slate-300 transition hover:border-slate-500 hover:text-white ${
-          compact ? "px-2.5 py-0.5 text-[11px]" : "px-3 py-1.5 text-xs"
-        }`}
+        className={buttonClass}
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t("language.select")}
       >
-        <Globe className={compact ? "h-3 w-3" : "h-3.5 w-3.5"} />
+        <Globe className={variant === "button" || compact ? "h-4 w-4" : "h-3.5 w-3.5"} />
         <span className="font-medium uppercase">{current.code}</span>
       </button>
       {menu}

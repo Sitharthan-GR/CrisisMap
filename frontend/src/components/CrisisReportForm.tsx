@@ -109,13 +109,18 @@ function canProceed(
   state: {
     damage: DamageLevel | null;
     infra: InfraType | null;
+    infraOtherDetail: string;
     crisis: NatureOfCrisis | null;
     debris: "yes" | "no" | null;
   },
 ): boolean {
   if (step === "location" || step === "photo") return true;
   if (step === "damage") return state.damage !== null;
-  if (step === "infra") return state.infra !== null;
+  if (step === "infra") {
+    if (state.infra === null) return false;
+    if (state.infra === "other") return state.infraOtherDetail.trim().length > 0;
+    return true;
+  }
   if (step === "crisis") return state.crisis !== null;
   if (step === "debris") return state.debris !== null;
   return false;
@@ -169,6 +174,7 @@ export default function CrisisReportForm() {
   const [nearestCrisisId, setNearestCrisisId] = useState<string | null>(null);
   const [damage, setDamage] = useState<DamageLevel | null>(null);
   const [infra, setInfra] = useState<InfraType | null>(null);
+  const [infraOtherDetail, setInfraOtherDetail] = useState("");
   const [nature, setNature] = useState<NatureOfCrisis | null>(null);
   const [debris, setDebris] = useState<"yes" | "no" | null>(null);
   const [description, setDescription] = useState("");
@@ -475,6 +481,7 @@ export default function CrisisReportForm() {
     setStep("damage");
     setDamage(null);
     setInfra(null);
+    setInfraOtherDetail("");
     setNature(null);
     setDebris(null);
     setDescription("");
@@ -546,6 +553,12 @@ export default function CrisisReportForm() {
       return;
     }
 
+    if (infra === "other" && !infraOtherDetail.trim()) {
+      setError(t("wizard.errors.infraOtherRequired"));
+      setStep("infra");
+      return;
+    }
+
     if (!latitude || !longitude) {
       setError(t("wizard.errors.locationRequired"));
       setStep("location");
@@ -562,6 +575,8 @@ export default function CrisisReportForm() {
         crisis_id: crisisId,
         damage_level: damage,
         infra_type: infra,
+        infra_subtype:
+          infra === "other" ? infraOtherDetail.trim() : undefined,
         debris_present: debris === "yes",
         nature_of_crisis: nature,
         description_raw: description.trim() || undefined,
@@ -714,7 +729,7 @@ export default function CrisisReportForm() {
             <p className="mt-2.5 text-xs text-slate-400">
               {t("wizard.doneSummary", {
                 damage: damageLevelLabel(damage ?? undefined),
-                infra: infraTypeLabel(infra ?? undefined),
+                infra: infraTypeLabel(infra ?? undefined, infraOtherDetail),
               })}
               {uploadedPhotoCount > 0 &&
                 t("wizard.donePhotos", { count: uploadedPhotoCount })}
@@ -744,16 +759,39 @@ export default function CrisisReportForm() {
             )}
 
             {step === "infra" && (
-              <div className="grid grid-cols-2 gap-2">
-                {infraOptions.map((opt) => (
-                  <OptionButton
-                    key={opt.value}
-                    option={opt}
-                    grid
-                    selected={infra === opt.value}
-                    onSelect={() => setInfra(opt.value as InfraType)}
-                  />
-                ))}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {infraOptions.map((opt) => (
+                    <OptionButton
+                      key={opt.value}
+                      option={opt}
+                      grid
+                      selected={infra === opt.value}
+                      onSelect={() => {
+                        setInfra(opt.value as InfraType);
+                        if (opt.value !== "other") {
+                          setInfraOtherDetail("");
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+                {infra === "other" && (
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs text-slate-400">
+                      {t("wizard.infraOtherLabel")}
+                    </span>
+                    <input
+                      type="text"
+                      value={infraOtherDetail}
+                      onChange={(e) => setInfraOtherDetail(e.target.value)}
+                      placeholder={t("wizard.infraOtherPlaceholder")}
+                      maxLength={100}
+                      autoFocus
+                      className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
+                    />
+                  </label>
+                )}
               </div>
             )}
 
@@ -904,6 +942,7 @@ export default function CrisisReportForm() {
               !canProceed(step, {
                 damage,
                 infra,
+                infraOtherDetail,
                 crisis: nature,
                 debris,
               })

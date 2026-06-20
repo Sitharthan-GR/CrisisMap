@@ -5,7 +5,7 @@ import { ApiError, fetchReportDetail, fetchReportVersions, isAbortError } from "
 import { PhotoGallery } from "./PhotoLightbox";
 import ReportVersionHistory from "./ReportVersionHistory";
 import {
-  damageLevelColor,
+  damageLevelClass,
   damageLevelLabel,
   infraTypeLabel,
 } from "../lib/severity";
@@ -161,10 +161,11 @@ export default function ReportDetailContent({
     : { primary: null, secondary: null };
   const hasHistory = versions.length > 1;
   const isPopup = variant === "popup";
+  const isPanel = variant === "panel";
 
   const metaParts = [
     formatReportRef(detail.id),
-    infraTypeLabel(detail.infra_type),
+    infraTypeLabel(detail.infra_type, detail.infra_subtype),
     natureLabel,
   ].filter(Boolean);
 
@@ -177,18 +178,24 @@ export default function ReportDetailContent({
   }
 
   return (
-    <div className={`space-y-3 ${isPopup ? "min-w-[220px] max-w-[280px]" : ""}`}>
-      <div className="flex rounded-lg border border-surface-border bg-surface p-0.5">
+    <div className={isPopup ? "min-w-[220px] max-w-[280px] space-y-3" : ""}>
+      <div className={isPanel ? "rd-tabs" : "flex rounded-lg border border-surface-border bg-surface p-0.5"}>
         {tabs.map((tab) => (
           <button
             key={tab.id}
             type="button"
             onClick={() => setActiveTab(tab.id)}
-            className={`flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
-              activeTab === tab.id
-                ? "border border-surface-border bg-surface-raised text-white shadow-sm"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            className={
+              isPanel
+                ? activeTab === tab.id
+                  ? "on"
+                  : ""
+                : `flex-1 rounded-md px-2 py-1.5 text-xs font-medium transition ${
+                    activeTab === tab.id
+                      ? "border border-surface-border bg-surface-raised text-white shadow-sm"
+                      : "text-slate-400 hover:text-slate-200"
+                  }`
+            }
           >
             {tab.label}
           </button>
@@ -196,57 +203,64 @@ export default function ReportDetailContent({
       </div>
 
       {activeTab === "info" && (
-        <div className="space-y-3">
+        <div className={isPanel ? "" : "space-y-3"}>
           <div>
-            <div className="flex items-center gap-2">
+            <div className={isPanel ? "rd-title" : "flex items-center gap-2"}>
               <span
-                className="h-2.5 w-2.5 shrink-0 rounded-full"
-                style={{ backgroundColor: damageLevelColor(detail.damage_level) }}
+                className={`dmg-dot ${damageLevelClass(detail.damage_level)}`}
                 aria-hidden
               />
-              <p className="text-base font-semibold text-white">
-                {damageLevelLabel(detail.damage_level)}
-              </p>
+              {isPanel ? (
+                damageLevelLabel(detail.damage_level)
+              ) : (
+                <p className="text-base font-semibold text-white">
+                  {damageLevelLabel(detail.damage_level)}
+                </p>
+              )}
             </div>
-            <p className="mt-1 text-xs text-slate-400">
+            <p className={isPanel ? "rd-sub" : "mt-1 text-xs text-slate-400"}>
               {metaParts.join(" · ")}
             </p>
             {crisisName && (
-              <p className="mt-0.5 text-xs text-slate-500">{crisisName}</p>
+              <p className={isPanel ? "rd-crisis" : "mt-0.5 text-xs text-slate-500"}>
+                {crisisName}
+              </p>
             )}
           </div>
 
           {location && (locationPrimary || location.latitude) && (
-            <div className="rounded-xl border border-surface-border bg-surface px-3 py-3">
-              <div className="flex gap-2.5">
+            <div className={isPanel ? "rd-loc" : "rounded-xl border border-surface-border bg-surface px-3 py-3"}>
+              <div className={isPanel ? "pinico" : ""}>
                 <MapPin
-                  className="mt-0.5 h-4 w-4 shrink-0 text-accent"
+                  className={isPanel ? "" : "mt-0.5 h-4 w-4 shrink-0 text-accent"}
                   aria-hidden
                 />
-                <div className="min-w-0 flex-1 space-y-1">
-                  {locationPrimary && (
-                    <p className="text-sm font-medium text-white">
-                      {locationPrimary}
-                    </p>
-                  )}
-                  {locationSecondary && (
-                    <p className="text-xs text-slate-400">{locationSecondary}</p>
-                  )}
-                  <p className="text-xs text-slate-500">
-                    {formatCoordinates(location.latitude, location.longitude)}
+              </div>
+              <div className="min-w-0 flex-1">
+                {locationPrimary && (
+                  <p className={isPanel ? "" : "text-sm font-medium text-white"}>
+                    <b>{locationPrimary}</b>
                   </p>
-                  {location.what3words && (
-                    <span className="mt-1.5 inline-block rounded-md bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-300">
-                      /// {location.what3words.replace(/^\/{3}\s?/, "")}
-                    </span>
-                  )}
-                </div>
+                )}
+                {locationSecondary && (
+                  <p className={isPanel ? "sub" : "text-xs text-slate-400"}>
+                    {locationSecondary}
+                  </p>
+                )}
+                <p className={isPanel ? "coords" : "text-xs text-slate-500"}>
+                  {formatCoordinates(location.latitude, location.longitude)}
+                </p>
+                {location.what3words && (
+                  <span className="mt-1.5 inline-block rounded-md bg-rose-500/15 px-2 py-0.5 text-[11px] font-medium text-rose-300">
+                    /// {location.what3words.replace(/^\/{3}\s?/, "")}
+                  </span>
+                )}
               </div>
             </div>
           )}
 
-          <div className="grid grid-cols-2 gap-2">
-            <InfoCell label={t("reportDetail.debris")}>
+          <div className={isPanel ? "rd-grid" : "grid grid-cols-2 gap-2"}>
+            <InfoCell label={t("reportDetail.debris")} panel={isPanel}>
               <span
                 className={
                   detail.debris_present ? "text-amber-400" : "text-slate-300"
@@ -257,15 +271,15 @@ export default function ReportDetailContent({
                   : t("reportDetail.debrisNone")}
               </span>
             </InfoCell>
-            <InfoCell label={t("reportDetail.reporter")}>
+            <InfoCell label={t("reportDetail.reporter")} panel={isPanel}>
               {detail.reporter_name && detail.reporter_name !== "anonymous"
                 ? detail.reporter_name
                 : t("reportDetail.anonymous")}
             </InfoCell>
-            <InfoCell label={t("reportDetail.submitted")}>
+            <InfoCell label={t("reportDetail.submitted")} panel={isPanel}>
               {formatSubmittedAt(detail.submitted_at)}
             </InfoCell>
-            <InfoCell label={t("reportDetail.description")}>
+            <InfoCell label={t("reportDetail.description")} panel={isPanel}>
               <span
                 className={`line-clamp-2 ${
                   description ? "text-slate-200" : "text-slate-500"
@@ -316,10 +330,21 @@ export default function ReportDetailContent({
 function InfoCell({
   label,
   children,
+  panel = false,
 }: {
   label: string;
   children: React.ReactNode;
+  panel?: boolean;
 }) {
+  if (panel) {
+    return (
+      <div className="rd-cell">
+        <div className="k">{label}</div>
+        <div className="v">{children}</div>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl border border-surface-border bg-surface px-3 py-2.5">
       <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">

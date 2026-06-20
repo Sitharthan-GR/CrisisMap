@@ -1,12 +1,13 @@
-import { Activity, Loader2, MapPin } from "lucide-react";
+import { Building2, Loader2, Search } from "lucide-react";
 import { useTranslation } from "react-i18next";
 import type { MapReportPin } from "../types/report";
 import {
-  damageLevelColor,
+  damageLevelClass,
   damageLevelLabel,
   infraTypeLabel,
 } from "../lib/severity";
 import { distanceMeters } from "../lib/geo";
+import type { DamageFilter, ReportSort } from "../lib/reportFilters";
 
 interface LiveActivityFeedProps {
   reports: MapReportPin[];
@@ -15,6 +16,10 @@ interface LiveActivityFeedProps {
   loading?: boolean;
   centerLat: number;
   centerLng: number;
+  damageFilter: DamageFilter;
+  onDamageFilterChange: (filter: DamageFilter) => void;
+  sort: ReportSort;
+  onSortChange: (sort: ReportSort) => void;
 }
 
 function formatDistance(meters: number): string {
@@ -22,25 +27,7 @@ function formatDistance(meters: number): string {
   return `${(meters / 1000).toFixed(1)} km`;
 }
 
-function FeedSkeleton() {
-  return (
-    <div className="flex flex-col gap-2" aria-hidden>
-      {Array.from({ length: 5 }).map((_, i) => (
-        <div
-          key={i}
-          className="flex gap-3 rounded-lg border border-surface-border/50 bg-surface/40 p-2.5"
-        >
-          <div className="h-14 w-14 shrink-0 animate-pulse rounded-md bg-surface-border/70" />
-          <div className="min-w-0 flex-1 space-y-2 py-0.5">
-            <div className="h-3.5 w-24 animate-pulse rounded bg-surface-border/70" />
-            <div className="h-3 w-32 animate-pulse rounded bg-surface-border/50" />
-            <div className="h-2.5 w-20 animate-pulse rounded bg-surface-border/40" />
-          </div>
-        </div>
-      ))}
-    </div>
-  );
-}
+const DAMAGE_FILTERS: DamageFilter[] = ["all", "complete", "partial", "minimal"];
 
 export default function LiveActivityFeed({
   reports,
@@ -49,119 +36,139 @@ export default function LiveActivityFeed({
   loading = false,
   centerLat,
   centerLng,
+  damageFilter,
+  onDamageFilterChange,
+  sort,
+  onSortChange,
 }: LiveActivityFeedProps) {
   const { t } = useTranslation();
 
-  return (
-    <div className="flex flex-col p-3">
-      <div className="mb-3 flex items-center justify-between gap-2 px-1">
-        <span
-          className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-0.5 text-[10px] font-medium uppercase tracking-wide transition-colors duration-300 ${
-            loading
-              ? "border-slate-600/40 bg-surface-border/30 text-slate-500"
-              : "border-emerald-500/30 bg-emerald-500/10 text-emerald-400"
-          }`}
-        >
-          {loading ? (
-            <Loader2 className="h-3 w-3 animate-spin" />
-          ) : (
-            <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
-          )}
-          {loading ? t("activityFeed.loading") : t("activityFeed.live")}
-        </span>
-        {!loading && (
-          <p className="text-[11px] text-slate-600 transition-opacity duration-300">
-            {t("activityFeed.count", { count: reports.length })}
-          </p>
-        )}
-      </div>
-      <p className="mb-3 px-1 text-xs text-slate-500">{t("activityFeed.subtitle")}</p>
+  const filterLabel = (filter: DamageFilter) => {
+    if (filter === "all") return t("activityFeed.filterAll");
+    return t(`damage.${filter}Title`);
+  };
 
-      <div className="relative min-h-[12rem]">
+  return (
+    <>
+      <div className="feed-top">
+        <div className="feed-head">
+          <span className={`live-pill${loading ? " loading" : ""}`}>
+            {loading ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <span className="blip" />
+            )}
+            {loading ? t("activityFeed.loading") : t("activityFeed.live")}
+          </span>
+          <span className="panel-h" style={{ margin: 0, gap: 8 }}>
+            <h2 style={{ fontSize: 15 }}>{t("activityFeed.title")}</h2>
+          </span>
+          {!loading && (
+            <span className="result-count" style={{ marginLeft: "auto" }}>
+              {t("activityFeed.count", { count: reports.length })}
+            </span>
+          )}
+        </div>
+
+        <div className="feed-controls">
+          <div className="chips-row">
+            {DAMAGE_FILTERS.map((filter) => (
+              <button
+                key={filter}
+                type="button"
+                className={`chip${damageFilter === filter ? " on" : ""}${
+                  filter !== "all" ? ` dmg-${filter}` : ""
+                }`}
+                onClick={() => onDamageFilterChange(filter)}
+              >
+                {filter !== "all" && (
+                  <span
+                    className="cdot"
+                    style={{
+                      background:
+                        filter === "complete"
+                          ? "var(--dmg-complete)"
+                          : filter === "partial"
+                            ? "var(--dmg-partial)"
+                            : "var(--dmg-minimal)",
+                    }}
+                  />
+                )}
+                {filterLabel(filter)}
+              </button>
+            ))}
+          </div>
+
+          <div className="sort-row">
+            <span className="label">{t("activityFeed.sort")}</span>
+            <select
+              className="field"
+              value={sort}
+              onChange={(e) => onSortChange(e.target.value as ReportSort)}
+            >
+              <option value="newest">{t("activityFeed.sortNewest")}</option>
+              <option value="nearest">{t("activityFeed.sortNearest")}</option>
+              <option value="severe">{t("activityFeed.sortSevere")}</option>
+            </select>
+          </div>
+        </div>
+      </div>
+
+      <div className="feed-list">
         {loading && (
-          <div className="transition-opacity duration-200 ease-out">
-            <FeedSkeleton />
+          <div className="empty">
+            <Loader2 className="mx-auto mb-2 h-8 w-8 animate-spin opacity-50" />
+            <div>{t("activityFeed.loading")}</div>
           </div>
         )}
 
         {!loading && reports.length === 0 && (
-          <div className="flex flex-col items-center justify-center gap-3 px-4 py-12 text-center opacity-100 transition-opacity duration-300">
-            <div className="rounded-full bg-surface-border/60 p-4">
-              <MapPin className="h-6 w-6 text-slate-500" />
-            </div>
-            <p className="text-sm font-medium text-slate-300">
-              {t("list.noReports")}
-            </p>
-            <p className="text-xs text-slate-500">{t("list.noReportsHint")}</p>
+          <div className="empty">
+            <Search strokeWidth={1.5} />
+            <div>{t("activityFeed.noMatch")}</div>
           </div>
         )}
 
-        {!loading && reports.length > 0 && (
-          <ul className="flex flex-col gap-2 transition-opacity duration-300 ease-out">
-            {reports.map((report) => {
-              const isSelected = selectedId === report.id;
-              const dist = distanceMeters(
-                centerLat,
-                centerLng,
-                report.latitude,
-                report.longitude,
-              );
+        {!loading &&
+          reports.map((report) => {
+            const isSelected = selectedId === report.id;
+            const dmgClass = damageLevelClass(report.damageLevel);
+            const dist = distanceMeters(
+              centerLat,
+              centerLng,
+              report.latitude,
+              report.longitude,
+            );
 
-              return (
-                <li key={report.id}>
-                  <button
-                    type="button"
-                    onClick={() => onSelect(report)}
-                    className={`flex w-full gap-3 rounded-lg border p-2.5 text-start transition ${
-                      isSelected
-                        ? "border-accent bg-accent/10 ring-1 ring-accent/30"
-                        : "border-surface-border bg-surface/60 hover:border-slate-600 hover:bg-surface-raised"
-                    }`}
-                  >
-                    <div className="relative h-14 w-14 shrink-0 overflow-hidden rounded-md bg-surface-border/60">
-                      {report.thumbnail ? (
-                        <img
-                          src={report.thumbnail}
-                          alt=""
-                          className="h-full w-full object-cover"
-                        />
-                      ) : (
-                        <div className="flex h-full w-full items-center justify-center">
-                          <MapPin className="h-5 w-5 text-slate-600" />
-                        </div>
-                      )}
-                      <span
-                        className="absolute bottom-1 end-1 h-2.5 w-2.5 rounded-full border border-surface-raised"
-                        style={{
-                          backgroundColor: damageLevelColor(report.damageLevel),
-                        }}
-                      />
-                    </div>
-
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate text-sm font-medium text-white">
-                        {damageLevelLabel(report.damageLevel)}
-                      </p>
-                      <p className="mt-0.5 text-xs text-slate-400">
-                        {infraTypeLabel(report.infraType)} · {formatDistance(dist)}
-                      </p>
-                      {report.adminLevel2 && (
-                        <p className="mt-1 truncate text-[11px] text-slate-500">
-                          {report.adminLevel2}
-                        </p>
-                      )}
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
+            return (
+              <button
+                key={report.id}
+                type="button"
+                className={`feed-item${isSelected ? " sel" : ""}`}
+                onClick={() => onSelect(report)}
+              >
+                <div className={`swatch ${dmgClass}`}>
+                  {report.thumbnail ? (
+                    <img src={report.thumbnail} alt="" />
+                  ) : (
+                    <Building2 strokeWidth={2} />
+                  )}
+                </div>
+                <div className="fbody">
+                  <div className="ftitle">
+                    <b>{damageLevelLabel(report.damageLevel)}</b>
+                  </div>
+                  <span className="fmeta">
+                    {infraTypeLabel(report.infraType)} · {formatDistance(dist)}
+                  </span>
+                  {report.adminLevel2 && (
+                    <span className="fsub">{report.adminLevel2}</span>
+                  )}
+                </div>
+              </button>
+            );
+          })}
       </div>
-    </div>
+    </>
   );
-}
-
-export function LiveActivityFeedIcon() {
-  return <Activity className="h-4 w-4" />;
 }

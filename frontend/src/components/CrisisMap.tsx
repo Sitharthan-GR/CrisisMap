@@ -353,8 +353,8 @@ export default function CrisisMap({
 
   return (
     <div
-      className={`relative h-full w-full overflow-hidden rounded-xl border border-surface-border shadow-panel ${
-        pinDropActive ? "ring-2 ring-orange-500/40 ring-offset-0" : ""
+      className={`relative h-full w-full overflow-hidden${
+        pinDropActive ? " ring-2 ring-[var(--dmg-partial)]" : ""
       }`}
     >
       <MapContainer
@@ -386,8 +386,8 @@ export default function CrisisMap({
           center={center}
           radius={viewport.radiusMeters}
           pathOptions={{
-            color: "#3b82f6",
-            fillColor: "#3b82f6",
+            color: "var(--accent)",
+            fillColor: "var(--accent)",
             fillOpacity: 0.08,
             weight: 2,
             dashArray: "6 8",
@@ -425,21 +425,12 @@ export default function CrisisMap({
       </MapContainer>
 
       <div
-        className={`pointer-events-none absolute inset-0 z-[400] bg-surface/25 backdrop-blur-[1px] transition-opacity duration-300 ease-out ${
-          loading ? "opacity-100" : "opacity-0"
-        }`}
-        aria-hidden={!loading}
-      />
-
-      <div
-        className={`pointer-events-none absolute inset-0 z-[401] flex items-center justify-center transition-all duration-300 ease-out ${
-          loading ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"
-        }`}
+        className={`dashboard-map-loading${loading ? "" : " hidden"}`}
         aria-hidden={!loading}
       >
-        <div className="flex max-w-[min(90vw,320px)] items-center gap-3 rounded-xl border border-surface-border/80 bg-surface-raised/95 px-5 py-3.5 shadow-panel backdrop-blur-md">
-          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-accent" aria-hidden />
-          <p className="truncate text-sm font-medium text-slate-200">{loadingLabel}</p>
+        <div className="dashboard-map-loading-card">
+          <Loader2 aria-hidden />
+          <p>{loadingLabel}</p>
         </div>
       </div>
 
