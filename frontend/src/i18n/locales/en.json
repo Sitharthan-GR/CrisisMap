@@ -149,6 +149,12 @@
     "crisisEventOtherHint": "This report will only be visible to admins until a crisis is assigned.",
     "nearestCrisis": "nearest",
     "nearestCrisisHint": "Auto-selected based on your location. You can change this above.",
+    "offlineCrisisListHint": "Crisis list from last sync.",
+    "offlineCrisisListHintWithDate": "Crisis list from last sync ({{date}}).",
+    "offlineNearestCrisisHint": "Nearest crisis estimated from your GPS and cached crisis data.",
+    "offlineLocationHint": "Address lookup is unavailable offline. GPS coordinates will be used.",
+    "offlineCoordinatesHint": "Coordinates saved — address name will resolve when you're back online.",
+    "offlineSearchHint": "Place search requires an internet connection.",
     "stepOf": "Step {{current}} of 6",
     "stepOptional": "Step 6 of 6 · optional",
     "questions": {
@@ -185,7 +191,9 @@
     "infraOtherLabel": "Describe the building type",
     "infraOtherPlaceholder": "e.g. School, hospital, warehouse…",
     "doneTitle": "Report submitted",
+    "doneTitleOffline": "Report saved on this device",
     "doneSubtitle": "Now visible on the crisis map",
+    "doneSubtitleOffline": "It will submit automatically when you're back online",
     "doneSubtitleUnlisted": "Submitted for admin review (not on the public map)",
     "doneSummary": "{{damage}} damage · {{infra}}",
     "donePhotos": " · {{count}} photo",
@@ -202,6 +210,13 @@
       "photoEmpty": "Image file is empty.",
       "photoMax": "You can attach up to {{max}} images per report."
     }
+  },
+  "offline": {
+    "pending": "{{count}} report waiting to sync",
+    "pending_plural": "{{count}} reports waiting to sync",
+    "syncing": "Syncing {{count}} pending report…",
+    "syncing_plural": "Syncing {{count}} pending reports…",
+    "retryNow": "Sync now"
   },
   "locationPicker": {
     "useMyGps": "Use my GPS",

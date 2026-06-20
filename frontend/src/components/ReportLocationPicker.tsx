@@ -30,6 +30,7 @@ interface ReportLocationPickerProps {
   onSelectPlace: (place: PlaceSearchResult) => void;
   onMapPick: (lat: number, lng: number) => void;
   onUseGps: () => void;
+  isOffline?: boolean;
 }
 
 function createPinIcon() {
@@ -100,6 +101,7 @@ export default function ReportLocationPicker({
   onSelectPlace,
   onMapPick,
   onUseGps,
+  isOffline = false,
 }: ReportLocationPickerProps) {
   const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -159,6 +161,12 @@ export default function ReportLocationPicker({
       )}
 
       <div className="p-4">
+        {isOffline && (
+          <p className="mb-3 rounded-lg border border-sky-500/30 bg-sky-950/40 px-3 py-2 text-xs text-sky-100">
+            {t("wizard.offlineLocationHint")}
+          </p>
+        )}
+
         <div className="relative">
           <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
           <input
@@ -168,10 +176,17 @@ export default function ReportLocationPicker({
             onChange={(e) => onAddressQueryChange(e.target.value)}
             onFocus={() => setMode("search")}
             placeholder={t("wizard.addressPlaceholder")}
-            className="w-full rounded-lg border border-accent/40 bg-surface py-2.5 ps-10 pe-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
+            className="w-full rounded-lg border border-accent/40 bg-surface py-2.5 ps-10 pe-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
             autoComplete="off"
+            disabled={isOffline}
           />
         </div>
+
+        {isOffline && mode === "search" && (
+          <p className="mt-1 text-[11px] text-slate-500">
+            {t("wizard.offlineSearchHint")}
+          </p>
+        )}
 
         {showSearchPanel && (
           <div className="relative z-10 mt-1">
@@ -266,6 +281,11 @@ export default function ReportLocationPicker({
                     {Number(latitude).toFixed(4)}, {Number(longitude).toFixed(4)}
                   </p>
                 )}
+                {isOffline && hasCoords && (
+                  <p className="mt-1 text-[11px] text-sky-300/90">
+                    {t("wizard.offlineCoordinatesHint")}
+                  </p>
+                )}
                 {placeLabel && placeLabel !== shortLabel && hasCoords && (
                   <p
                     className="mt-1 line-clamp-2 text-[11px] text-slate-600"
@@ -302,7 +322,8 @@ export default function ReportLocationPicker({
                 key={id}
                 type="button"
                 onClick={() => handleModeChange(id)}
-                className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs transition ${
+                disabled={isOffline && id === "search"}
+                className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   selected
                     ? "border-accent bg-accent/10 text-accent"
                     : "border-surface-border bg-surface text-slate-400 hover:border-slate-500 hover:text-slate-200"

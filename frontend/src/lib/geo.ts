@@ -1,4 +1,4 @@
-import type { MapReportPin } from "../types/report";
+import type { Crisis, MapReportPin } from "../types/report";
 import { DEFAULT_RADIUS_METERS, RADIUS_OPTIONS } from "./constants";
 
 /** Haversine distance in meters between two WGS84 points. */
@@ -52,6 +52,36 @@ export function hasValidEpicenter(
   lng: number | null | undefined,
 ): lat is number {
   return lat != null && lng != null && !(lat === 0 && lng === 0);
+}
+
+/** Mirrors backend `nearest_crisis_id` — closest epicenter, else first crisis. */
+export function findNearestCrisisId(
+  crises: Crisis[],
+  lat: number,
+  lng: number,
+): string | null {
+  if (crises.length === 0) return null;
+
+  let bestId: string | null = null;
+  let bestDistance = Infinity;
+
+  for (const crisis of crises) {
+    if (!hasValidEpicenter(crisis.epicenter_lat, crisis.epicenter_lng)) {
+      continue;
+    }
+    const distance = distanceMeters(
+      lat,
+      lng,
+      crisis.epicenter_lat!,
+      crisis.epicenter_lng!,
+    );
+    if (distance < bestDistance) {
+      bestDistance = distance;
+      bestId = crisis.id;
+    }
+  }
+
+  return bestId ?? crises[0].id;
 }
 
 /** Pick the smallest preset radius that covers all reports from a center point. */

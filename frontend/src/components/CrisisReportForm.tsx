@@ -31,6 +31,19 @@ import { Link, useLocation } from "react-router-dom";
 import { ApiError, createReport, fetchReportingOptions, fetchReverseGeocode, searchPlaces, type PlaceSearchResult } from "../api/client";
 import { autoDetectLanguageFromLocation } from "../i18n";
 import { getCurrentLocation } from "../lib/geolocation";
+import { findNearestCrisisId } from "../lib/geo";
+import {
+  isApiReachable,
+  isNetworkFailure,
+  queueReportForSync,
+} from "../lib/offlineSync";
+import {
+  formatReportingOptionsCachedAt,
+  loadReportingOptionsCache,
+  loadReportingOptionsCachedAt,
+  saveReportingOptionsCache,
+} from "../lib/reportingOptionsCache";
+import { useNetworkStatus } from "../lib/useNetworkStatus";
 import {
   loadReporterName,
   resolveReporterName,
@@ -49,7 +62,7 @@ import {
   validateImageFile,
 } from "../lib/photos";
 import type { ReportLocationPrefill } from "../types/location";
-import type { Crisis, DamageLevel, InfraType, LocationMethod, Report } from "../types/report";
+import type { Crisis, DamageLevel, InfraType, LocationMethod, Report, ReportCreateInput } from "../types/report";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ReportLocationPicker from "./ReportLocationPicker";
 
@@ -163,6 +176,7 @@ function OptionButton({ option, selected, onSelect, grid }: OptionButtonProps) {
 
 export default function CrisisReportForm() {
   const { t, i18n } = useTranslation();
+  const isOnline = useNetworkStatus();
   const routerLocation = useLocation();
   const locationPrefill = routerLocation.state?.locationPrefill as
     | ReportLocationPrefill
@@ -196,6 +210,7 @@ export default function CrisisReportForm() {
   const [uploadProgress, setUploadProgress] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [submittedReport, setSubmittedReport] = useState<Report | null>(null);
+  const [submittedOffline, setSubmittedOffline] = useState(false);
   const [uploadedPhotoCount, setUploadedPhotoCount] = useState(0);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -333,6 +348,33 @@ export default function CrisisReportForm() {
     }
   };
 
+  const applyNearestFromCache = (lat: number, lng: number) => {
+    const cached = loadReportingOptionsCache();
+    if (!cached) return;
+
+    const nearest = findNearestCrisisId(cached.crises, lat, lng);
+    applyReportingOptions({
+      ...cached,
+      nearest_crisis_id: nearest,
+    });
+  };
+
+  const reportingOptionsWithNearest = (
+    options: {
+      crises: Crisis[];
+      unlisted_crisis_id: string;
+      nearest_crisis_id: string | null;
+    },
+    lat?: number,
+    lng?: number,
+  ) => {
+    if (lat === undefined || lng === undefined) return options;
+    return {
+      ...options,
+      nearest_crisis_id: findNearestCrisisId(options.crises, lat, lng),
+    };
+  };
+
   const handleEventSelect = (value: string) => {
     crisisSelectionTouchedRef.current = true;
     setSelectedEventId(value);
@@ -358,13 +400,31 @@ export default function CrisisReportForm() {
 
   useEffect(() => {
     const controller = new AbortController();
+    const cached = loadReportingOptionsCache();
+    const prefillLat = locationPrefill?.latitude;
+    const prefillLng = locationPrefill?.longitude;
+
+    if (cached) {
+      const options =
+        prefillLat !== undefined && prefillLng !== undefined
+          ? reportingOptionsWithNearest(cached, prefillLat, prefillLng)
+          : cached;
+      applyReportingOptions(options, locationPrefill?.crisisId);
+      setLoadingCrises(false);
+    }
 
     fetchReportingOptions(undefined, controller.signal)
       .then((options) => {
-        applyReportingOptions(options, locationPrefill?.crisisId);
+        saveReportingOptionsCache(options);
+        const resolved =
+          prefillLat !== undefined && prefillLng !== undefined
+            ? reportingOptionsWithNearest(options, prefillLat, prefillLng)
+            : options;
+        applyReportingOptions(resolved, locationPrefill?.crisisId);
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
+        if (cached) return;
         setError(
           err instanceof ApiError
             ? err.message
@@ -373,14 +433,23 @@ export default function CrisisReportForm() {
       })
       .finally(() => setLoadingCrises(false));
     return () => controller.abort();
-  }, [t, locationPrefill?.crisisId]);
+  }, [t, locationPrefill?.crisisId, locationPrefill?.latitude, locationPrefill?.longitude]);
 
   const refreshNearestCrisis = (lat: number, lng: number) => {
     if (crisisSelectionTouchedRef.current) return;
+
+    if (!isOnline) {
+      applyNearestFromCache(lat, lng);
+      return;
+    }
+
     void fetchReportingOptions({ lat, lng })
-      .then((options) => applyReportingOptions(options))
+      .then((options) => {
+        saveReportingOptionsCache(options);
+        applyReportingOptions(reportingOptionsWithNearest(options, lat, lng));
+      })
       .catch(() => {
-        // Non-blocking: nearest crisis hint is optional
+        applyNearestFromCache(lat, lng);
       });
   };
 
@@ -492,6 +561,7 @@ export default function CrisisReportForm() {
     setBuildingFootprintId(undefined);
     setLocationMethod("gps");
     setSubmittedReport(null);
+    setSubmittedOffline(false);
     setUploadedPhotoCount(0);
     setError(null);
     crisisSelectionTouchedRef.current = false;
@@ -547,6 +617,22 @@ export default function CrisisReportForm() {
     });
   };
 
+  const finishOfflineSubmission = async (payload: ReportCreateInput) => {
+    const photoFiles = pendingPhotos.map((photo) => photo.file);
+    await queueReportForSync(payload, photoFiles);
+
+    if (payload.reporter_name !== "anonymous") {
+      saveReporterName(payload.reporter_name!);
+    }
+
+    pendingPhotos.forEach(revokePendingPhoto);
+    setPendingPhotos([]);
+    setUploadedPhotoCount(photoFiles.length);
+    setSubmittedOffline(true);
+    setSubmittedReport(null);
+    setStep("done");
+  };
+
   const submitReport = async () => {
     if (!crisisId || !damage || !infra || !nature || debris === null) {
       setError(t("wizard.errors.incomplete"));
@@ -569,28 +655,36 @@ export default function CrisisReportForm() {
     setUploadProgress(null);
     setError(null);
 
+    const resolvedReporterName = resolveReporterName(reporterName);
+    const payload = {
+      crisis_id: crisisId,
+      damage_level: damage,
+      infra_type: infra,
+      infra_subtype:
+        infra === "other" ? infraOtherDetail.trim() : undefined,
+      debris_present: debris === "yes",
+      nature_of_crisis: nature,
+      description_raw: description.trim() || undefined,
+      reporter_name: resolvedReporterName,
+      source_language: i18n.language,
+      submission_channel: "app" as const,
+      collected_at: toIsoUtc(new Date()),
+      location: {
+        latitude: Number(latitude),
+        longitude: Number(longitude),
+        location_method: locationMethod,
+        building_footprint_id: buildingFootprintId,
+      },
+    };
+
     try {
-      const resolvedReporterName = resolveReporterName(reporterName);
-      const report = await createReport({
-        crisis_id: crisisId,
-        damage_level: damage,
-        infra_type: infra,
-        infra_subtype:
-          infra === "other" ? infraOtherDetail.trim() : undefined,
-        debris_present: debris === "yes",
-        nature_of_crisis: nature,
-        description_raw: description.trim() || undefined,
-        reporter_name: resolvedReporterName,
-        source_language: i18n.language,
-        submission_channel: "app",
-        collected_at: toIsoUtc(new Date()),
-        location: {
-          latitude: Number(latitude),
-          longitude: Number(longitude),
-          location_method: locationMethod,
-          building_footprint_id: buildingFootprintId,
-        },
-      });
+      const online = await isApiReachable();
+      if (!online) {
+        await finishOfflineSubmission(payload);
+        return;
+      }
+
+      const report = await createReport(payload);
 
       let photoCount = 0;
       if (pendingPhotos.length > 0) {
@@ -613,10 +707,25 @@ export default function CrisisReportForm() {
 
       pendingPhotos.forEach(revokePendingPhoto);
       setPendingPhotos([]);
+      setSubmittedOffline(false);
       setSubmittedReport(report);
       setUploadedPhotoCount(photoCount);
       setStep("done");
     } catch (err) {
+      if (isNetworkFailure(err)) {
+        try {
+          await finishOfflineSubmission(payload);
+          return;
+        } catch (queueErr) {
+          setError(
+            queueErr instanceof Error
+              ? queueErr.message
+              : t("wizard.errors.submitFailed"),
+          );
+          return;
+        }
+      }
+
       setError(
         err instanceof ApiError
           ? err.message
@@ -627,6 +736,13 @@ export default function CrisisReportForm() {
       setUploadProgress(null);
     }
   };
+
+  const cachedCrisesAt = loadReportingOptionsCachedAt();
+  const cachedCrisesLabel = cachedCrisesAt
+    ? formatReportingOptionsCachedAt(cachedCrisesAt, i18n.language)
+    : null;
+  const showCachedCrisisHint =
+    !isOnline && Boolean(unlistedCrisisId) && Boolean(cachedCrisesAt);
 
   if (loadingCrises) {
     return (
@@ -667,6 +783,15 @@ export default function CrisisReportForm() {
 
       {step !== "done" && unlistedCrisisId && (
         <div className="mx-4 mt-2">
+          {showCachedCrisisHint && (
+            <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-[11px] text-amber-100">
+              {cachedCrisesLabel
+                ? t("wizard.offlineCrisisListHintWithDate", {
+                    date: cachedCrisesLabel,
+                  })
+                : t("wizard.offlineCrisisListHint")}
+            </p>
+          )}
           <label className="mb-1 block text-xs text-slate-400">
             {t("wizard.crisisEventLabel")}
           </label>
@@ -691,7 +816,9 @@ export default function CrisisReportForm() {
             </p>
           ) : nearestCrisisId === selectedEventId ? (
             <p className="mt-1 text-[11px] text-slate-500">
-              {t("wizard.nearestCrisisHint")}
+              {!isOnline
+                ? t("wizard.offlineNearestCrisisHint")
+                : t("wizard.nearestCrisisHint")}
             </p>
           ) : null}
         </div>
@@ -704,16 +831,20 @@ export default function CrisisReportForm() {
       )}
 
       <div className="min-h-[280px] px-4 py-4">
-        {step === "done" && submittedReport ? (
+        {step === "done" && (submittedReport || submittedOffline) ? (
           <div className="py-5 text-center">
             <CircleCheck className="mx-auto h-12 w-12 text-emerald-400" />
             <p className="mt-2.5 text-lg font-medium text-white">
-              {t("wizard.doneTitle")}
+              {submittedOffline
+                ? t("wizard.doneTitleOffline")
+                : t("wizard.doneTitle")}
             </p>
             <p className="mt-1 text-sm text-slate-400">
-              {isOtherCrisis
-                ? t("wizard.doneSubtitleUnlisted")
-                : t("wizard.doneSubtitle")}
+              {submittedOffline
+                ? t("wizard.doneSubtitleOffline")
+                : isOtherCrisis
+                  ? t("wizard.doneSubtitleUnlisted")
+                  : t("wizard.doneSubtitle")}
             </p>
             <div className="relative mx-auto mt-4 h-[150px] max-w-[280px] overflow-hidden rounded-lg border border-surface-border bg-[#1a2a3a]">
               <div
@@ -734,9 +865,11 @@ export default function CrisisReportForm() {
               {uploadedPhotoCount > 0 &&
                 t("wizard.donePhotos", { count: uploadedPhotoCount })}
             </p>
-            <p className="mt-1 font-mono text-[11px] text-slate-500">
-              {submittedReport.id}
-            </p>
+            {submittedReport && (
+              <p className="mt-1 font-mono text-[11px] text-slate-500">
+                {submittedReport.id}
+              </p>
+            )}
           </div>
         ) : (
           <>
@@ -831,6 +964,7 @@ export default function CrisisReportForm() {
                 addressQuery={addressQuery}
                 placeResults={placeResults}
                 searchingPlaces={searchingPlaces}
+                isOffline={!isOnline}
                 onAddressQueryChange={setAddressQuery}
                 onSelectPlace={selectPlace}
                 onMapPick={handleMapPick}
