@@ -1,6 +1,7 @@
-import { Download, X } from "lucide-react";
+import { Download } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { createPortal } from "react-dom";
 import {
   ApiError,
   downloadAdminExport,
@@ -80,43 +81,53 @@ export default function CrisisExportModal({
     }
   };
 
-  return (
+  return createPortal(
     <div
-      className="fixed inset-0 z-[1200] flex items-center justify-center bg-black/60 p-4 backdrop-blur-sm"
+      className="export-scrim"
       onClick={onClose}
       role="presentation"
     >
       <div
-        className="w-full max-w-md rounded-xl border border-surface-border bg-surface-raised p-5 shadow-panel"
+        className="export-modal"
         onClick={(event) => event.stopPropagation()}
         role="dialog"
         aria-modal="true"
         aria-labelledby="export-modal-title"
       >
-        <div className="mb-4 flex items-start justify-between gap-3">
+        <div className="export-modal-head">
           <div>
-            <h2 id="export-modal-title" className="text-base font-semibold text-white">
-              {t("export.modalTitle")}
-            </h2>
-            <p className="mt-1 text-xs text-slate-500">{t("export.modalSubtitle")}</p>
+            <h2 id="export-modal-title">{t("export.modalTitle")}</h2>
+            <p>{t("export.modalSubtitle")}</p>
           </div>
           <button
             type="button"
             onClick={onClose}
-            className="rounded-lg p-1 text-slate-400 transition hover:bg-surface hover:text-white"
+            className="icon-btn sm"
             aria-label={t("export.close")}
           >
-            <X className="h-4 w-4" />
+            <svg
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth="2.2"
+              strokeLinecap="round"
+              aria-hidden
+            >
+              <path d="m6 6 12 12M18 6 6 18" />
+            </svg>
           </button>
         </div>
 
-        <div className="space-y-3">
-          <label className="block text-xs text-slate-400">
-            {t("export.crisisFilter")}
+        <div className="export-modal-body">
+          <div className="admin-fieldset">
+            <label className="label" htmlFor="export-crisis">
+              {t("export.crisisFilter")}
+            </label>
             <select
+              id="export-crisis"
+              className="field"
               value={crisisId}
               onChange={(e) => setCrisisId(e.target.value)}
-              className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
             >
               <option value="all">{t("export.allCrises")}</option>
               {exportableCrises.map((crisis) => (
@@ -125,82 +136,91 @@ export default function CrisisExportModal({
                 </option>
               ))}
             </select>
-          </label>
+          </div>
 
-          <label className="block text-xs text-slate-400">
-            {t("export.format")}
+          <div className="admin-fieldset">
+            <label className="label" htmlFor="export-format">
+              {t("export.format")}
+            </label>
             <select
+              id="export-format"
+              className="field"
               value={format}
               onChange={(e) => setFormat(e.target.value as ExportFormat)}
-              className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
             >
               <option value="csv">{t("export.csv")}</option>
               <option value="geojson">{t("export.geojson")}</option>
               <option value="shapefile">{t("export.shapefile")}</option>
             </select>
-          </label>
+          </div>
 
-          <label className="block text-xs text-slate-400">
-            {t("export.statusFilter")}
+          <div className="admin-fieldset">
+            <label className="label" htmlFor="export-status">
+              {t("export.statusFilter")}
+            </label>
             <select
+              id="export-status"
+              className="field"
               value={status}
               onChange={(e) =>
                 setStatus(e.target.value as ExportQueryParams["status"])
               }
-              className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
             >
               <option value="validated">{t("export.statusValidated")}</option>
               <option value="all">{t("export.statusAll")}</option>
             </select>
-          </label>
+          </div>
 
-          <div className="grid grid-cols-2 gap-3">
-            <label className="block text-xs text-slate-400">
-              {t("export.dateFrom")}
+          <div className="export-grid-2">
+            <div className="admin-fieldset">
+              <label className="label" htmlFor="export-date-from">
+                {t("export.dateFrom")}
+              </label>
               <input
+                id="export-date-from"
                 type="date"
+                className="field"
                 value={dateFrom}
                 onChange={(e) => setDateFrom(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
               />
-            </label>
-            <label className="block text-xs text-slate-400">
-              {t("export.dateTo")}
+            </div>
+            <div className="admin-fieldset">
+              <label className="label" htmlFor="export-date-to">
+                {t("export.dateTo")}
+              </label>
               <input
+                id="export-date-to"
                 type="date"
+                className="field"
                 value={dateTo}
                 onChange={(e) => setDateTo(e.target.value)}
-                className="mt-1 w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
               />
-            </label>
+            </div>
           </div>
+
+          {format === "shapefile" && (
+            <p className="export-hint">{t("export.shapefileHint")}</p>
+          )}
+
+          {error && <p className="export-error">{error}</p>}
         </div>
 
-        {format === "shapefile" && (
-          <p className="mt-3 text-[11px] text-slate-500">{t("export.shapefileHint")}</p>
-        )}
-
-        {error && <p className="mt-3 text-sm text-red-300">{error}</p>}
-
-        <div className="mt-5 flex items-center justify-end gap-2">
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-lg border border-surface-border px-4 py-2 text-sm text-slate-300 transition hover:border-slate-500 hover:text-white"
-          >
+        <div className="export-modal-foot">
+          <button type="button" className="btn btn-sm" onClick={onClose}>
             {t("admin.cancel")}
           </button>
           <button
             type="button"
+            className="btn btn-primary btn-sm"
             onClick={() => void handleExport()}
             disabled={loading || exportableCrises.length === 0}
-            className="inline-flex items-center gap-2 rounded-lg bg-accent px-4 py-2 text-sm font-medium text-white transition hover:bg-accent-muted disabled:opacity-50"
           >
-            <Download className="h-4 w-4" />
+            <Download strokeWidth={2} />
             {loading ? t("export.downloading") : t("export.exportButton")}
           </button>
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
