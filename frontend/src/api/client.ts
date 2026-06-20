@@ -32,6 +32,13 @@ export class ApiError extends Error {
   }
 }
 
+export function isAbortError(err: unknown): boolean {
+  return (
+    (err instanceof DOMException && err.name === "AbortError") ||
+    (err instanceof Error && err.name === "AbortError")
+  );
+}
+
 async function parseApiResponse<T>(response: Response): Promise<T> {
   let body: ApiEnvelope<T> | null = null;
 

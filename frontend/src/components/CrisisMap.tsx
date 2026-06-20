@@ -1,4 +1,5 @@
 import L from "leaflet";
+import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapViewport } from "../types/crisis";
@@ -17,6 +18,9 @@ interface CrisisMapProps {
   selectedReportId?: string;
   crisisName?: string;
   mapFocusKey?: string;
+  fitReports?: MapReportPin[];
+  loading?: boolean;
+  loadingLabel?: string;
   layoutKey?: string;
   pinDropActive?: boolean;
   pickedLocation?: PickedMapLocation | null;
@@ -207,27 +211,86 @@ function BasemapTileLayer() {
 function MapRecenter({
   center,
   focusKey,
-  focusZoom = 12,
 }: {
   center: [number, number];
   focusKey?: string;
-  focusZoom?: number;
 }) {
   const map = useMap();
   const prevFocusKey = useRef<string | undefined>(undefined);
+  const prevCenter = useRef(center);
 
   useEffect(() => {
     const focusChanged =
       focusKey !== undefined && focusKey !== prevFocusKey.current;
     prevFocusKey.current = focusKey;
 
-    if (focusChanged && focusKey) {
-      map.flyTo(center, focusZoom, { animate: true, duration: 0.55 });
+    if (focusChanged) {
+      prevCenter.current = center;
       return;
     }
 
-    map.setView(center, map.getZoom(), { animate: true });
-  }, [center, focusKey, focusZoom, map]);
+    const centerChanged =
+      center[0] !== prevCenter.current[0] ||
+      center[1] !== prevCenter.current[1];
+    prevCenter.current = center;
+
+    if (centerChanged) {
+      map.setView(center, map.getZoom(), { animate: true });
+    }
+  }, [center, focusKey, map]);
+
+  return null;
+}
+
+function MapFitToReports({
+  reports,
+  focusKey,
+  loading,
+  fallbackCenter,
+}: {
+  reports: MapReportPin[];
+  focusKey?: string;
+  loading?: boolean;
+  fallbackCenter: [number, number];
+}) {
+  const map = useMap();
+  const lastFitKey = useRef<string | undefined>(undefined);
+  const prevFocusKey = useRef<string | undefined>(undefined);
+
+  useEffect(() => {
+    if (focusKey !== prevFocusKey.current) {
+      prevFocusKey.current = focusKey;
+      lastFitKey.current = undefined;
+    }
+
+    if (!focusKey || loading) return;
+    if (lastFitKey.current === focusKey) return;
+    lastFitKey.current = focusKey;
+
+    if (reports.length === 0) {
+      map.flyTo(fallbackCenter, 11, { animate: true, duration: 0.55 });
+      return;
+    }
+
+    if (reports.length === 1) {
+      map.flyTo(
+        [reports[0].latitude, reports[0].longitude],
+        14,
+        { animate: true, duration: 0.55 },
+      );
+      return;
+    }
+
+    const bounds = L.latLngBounds(
+      reports.map((report) => [report.latitude, report.longitude] as [number, number]),
+    );
+    map.flyToBounds(bounds, {
+      padding: [52, 52],
+      maxZoom: 13,
+      animate: true,
+      duration: 0.55,
+    });
+  }, [reports, focusKey, loading, fallbackCenter, map]);
 
   return null;
 }
@@ -273,6 +336,9 @@ export default function CrisisMap({
   selectedReportId,
   crisisName,
   mapFocusKey,
+  fitReports,
+  loading = false,
+  loadingLabel = "Loading…",
   layoutKey,
   pinDropActive = false,
   pickedLocation,
@@ -303,6 +369,12 @@ export default function CrisisMap({
         <BasemapTileLayer />
         <MapGlobeViewport layoutKey={layoutKey} />
         <MapRecenter center={center} focusKey={mapFocusKey} />
+        <MapFitToReports
+          reports={fitReports ?? reports}
+          focusKey={mapFocusKey}
+          loading={loading}
+          fallbackCenter={center}
+        />
         <MapPanToReport reports={reports} selectedReportId={selectedReportId} />
         <MapPinDropHandler active={pinDropActive} onPick={onMapPick} />
         <BuildingFootprints
@@ -346,11 +418,30 @@ export default function CrisisMap({
               eventHandlers={{
                 click: () => onSelectReport(report),
               }}
-              opacity={isSelected ? 1 : 0.9}
+              opacity={loading ? 0 : isSelected ? 1 : 0.9}
             />
           );
         })}
       </MapContainer>
+
+      <div
+        className={`pointer-events-none absolute inset-0 z-[400] bg-surface/25 backdrop-blur-[1px] transition-opacity duration-300 ease-out ${
+          loading ? "opacity-100" : "opacity-0"
+        }`}
+        aria-hidden={!loading}
+      />
+
+      <div
+        className={`pointer-events-none absolute inset-0 z-[401] flex items-center justify-center transition-all duration-300 ease-out ${
+          loading ? "scale-100 opacity-100" : "scale-[0.98] opacity-0"
+        }`}
+        aria-hidden={!loading}
+      >
+        <div className="flex max-w-[min(90vw,320px)] items-center gap-3 rounded-xl border border-surface-border/80 bg-surface-raised/95 px-5 py-3.5 shadow-panel backdrop-blur-md">
+          <Loader2 className="h-5 w-5 shrink-0 animate-spin text-accent" aria-hidden />
+          <p className="truncate text-sm font-medium text-slate-200">{loadingLabel}</p>
+        </div>
+      </div>
 
       {selectedReportId && onClearReport && (
         <ReportMapOverlay

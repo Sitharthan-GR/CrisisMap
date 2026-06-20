@@ -1,7 +1,7 @@
 import { MapPin } from "lucide-react";
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError, fetchReportDetail, fetchReportVersions } from "../api/client";
+import { ApiError, fetchReportDetail, fetchReportVersions, isAbortError } from "../api/client";
 import { PhotoGallery } from "./PhotoLightbox";
 import ReportVersionHistory from "./ReportVersionHistory";
 import {
@@ -78,9 +78,12 @@ export default function ReportDetailContent({
   const [error, setError] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [activeTab, setActiveTab] = useState<DetailTab>("info");
+  const fetchGenerationRef = useRef(0);
 
   useEffect(() => {
     const controller = new AbortController();
+    const generation = ++fetchGenerationRef.current;
+
     setLoading(true);
     setError(null);
     setDetail(null);
@@ -90,21 +93,30 @@ export default function ReportDetailContent({
 
     Promise.all([
       fetchReportDetail(reportId, controller.signal),
-      fetchReportVersions(reportId, controller.signal).catch(() => [] as ReportVersion[]),
+      fetchReportVersions(reportId, controller.signal).catch((err) => {
+        if (isAbortError(err)) throw err;
+        return [] as ReportVersion[];
+      }),
     ])
       .then(([data, versionData]) => {
+        if (generation !== fetchGenerationRef.current) return;
+        setError(null);
         setDetail(data);
         setVersions(versionData);
       })
       .catch((err) => {
-        if (err.name === "AbortError") return;
+        if (generation !== fetchGenerationRef.current || isAbortError(err)) return;
         setError(
           err instanceof ApiError
             ? err.message
             : t("reportDetail.loadFailed"),
         );
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (generation === fetchGenerationRef.current) {
+          setLoading(false);
+        }
+      });
 
     return () => controller.abort();
   }, [reportId, t]);
@@ -117,10 +129,18 @@ export default function ReportDetailContent({
     );
   }
 
-  if (error || !detail) {
+  if (error) {
     return (
       <p className={`text-red-300 ${variant === "popup" ? "text-xs" : "text-sm"}`}>
-        {error ?? t("reportDetail.loadFailed")}
+        {error}
+      </p>
+    );
+  }
+
+  if (!detail) {
+    return (
+      <p className={`text-slate-400 ${variant === "popup" ? "text-xs" : "text-sm"}`}>
+        {t("reportDetail.loading")}
       </p>
     );
   }

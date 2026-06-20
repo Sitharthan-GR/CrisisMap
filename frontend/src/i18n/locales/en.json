@@ -40,6 +40,8 @@
     "selectedLocation": "Selected location",
     "noLocationSelected": "Search, use GPS, or drop a pin to choose a location",
     "reportAtLocation": "Report damage here",
+    "loadingReports": "Loading reports…",
+    "loadingReportsFor": "Loading {{crisis}}…",
     "errors": {
       "loadCrises": "Could not load crises. Is the API running?",
       "loadMap": "Could not load map data. Is the API running?",
@@ -63,7 +65,8 @@
     "subtitle": "Recent damage reports in your search area",
     "live": "Live",
     "count": "{{count}} reports",
-    "count_one": "{{count}} report"
+    "count_one": "{{count}} report",
+    "loading": "Loading reports…"
   },
   "panels": {
     "collapseSearch": "Collapse search panel",

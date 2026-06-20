@@ -1,4 +1,5 @@
 import type { MapReportPin } from "../types/report";
+import { DEFAULT_RADIUS_METERS, RADIUS_OPTIONS } from "./constants";
 
 /** Haversine distance in meters between two WGS84 points. */
 export function distanceMeters(
@@ -51,4 +52,27 @@ export function hasValidEpicenter(
   lng: number | null | undefined,
 ): lat is number {
   return lat != null && lng != null && !(lat === 0 && lng === 0);
+}
+
+/** Pick the smallest preset radius that covers all reports from a center point. */
+export function radiusForReports(
+  reports: MapReportPin[],
+  centerLat: number,
+  centerLng: number,
+): number {
+  if (reports.length === 0) return DEFAULT_RADIUS_METERS;
+
+  let maxDist = 0;
+  for (const report of reports) {
+    maxDist = Math.max(
+      maxDist,
+      distanceMeters(centerLat, centerLng, report.latitude, report.longitude),
+    );
+  }
+
+  const padded = maxDist * 1.15 + 500;
+  for (const option of RADIUS_OPTIONS) {
+    if (padded <= option.value) return option.value;
+  }
+  return RADIUS_OPTIONS[RADIUS_OPTIONS.length - 1].value;
 }

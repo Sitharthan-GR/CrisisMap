@@ -7,6 +7,7 @@ import {
   fetchActiveCrises,
   fetchCrisisMap,
   fetchReverseGeocode,
+  isAbortError,
   searchPlaces,
   type PlaceSearchResult,
 } from "../api/client";
@@ -16,7 +17,7 @@ import {
   DEFAULT_RADIUS_METERS,
   RADIUS_OPTIONS,
 } from "../lib/constants";
-import { filterReportsInRadius, hasValidEpicenter, reportsCentroid } from "../lib/geo";
+import { filterReportsInRadius, hasValidEpicenter, radiusForReports, reportsCentroid } from "../lib/geo";
 import { GeolocationError, getCurrentLocation } from "../lib/geolocation";
 import type { MapViewport } from "../types/crisis";
 import type { PickedMapLocation, ReportLocationPrefill } from "../types/location";
@@ -81,6 +82,7 @@ export default function Dashboard() {
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const centeredCrisisRef = useRef<string | null>(null);
+  const mapFetchGenerationRef = useRef(0);
 
   const reportsInRange = useMemo(
     () =>
@@ -99,13 +101,17 @@ export default function Dashboard() {
       return;
     }
 
+    const generation = ++mapFetchGenerationRef.current;
     setLoading(true);
     setError(null);
 
     try {
       const mapData = await fetchCrisisMap(crisisId, { status: "all" });
+      if (generation !== mapFetchGenerationRef.current) return;
+      setError(null);
       setAllReports(mapFeaturesToPins(mapData.features));
     } catch (err) {
+      if (generation !== mapFetchGenerationRef.current || isAbortError(err)) return;
       const message =
         err instanceof ApiError
           ? err.message
@@ -113,7 +119,9 @@ export default function Dashboard() {
       setError(message);
       setAllReports([]);
     } finally {
-      setLoading(false);
+      if (generation === mapFetchGenerationRef.current) {
+        setLoading(false);
+      }
     }
   }, [t]);
 
@@ -124,6 +132,7 @@ export default function Dashboard() {
 
     fetchActiveCrises(controller.signal)
       .then((crises) => {
+        if (controller.signal.aborted) return;
         setCrisisEvents(crises);
         if (crises.length > 0) {
           setSelectedCrisisId((current) => current || crises[0].id);
@@ -134,7 +143,7 @@ export default function Dashboard() {
         }
       })
       .catch((err) => {
-        if (err.name === "AbortError") return;
+        if (controller.signal.aborted || isAbortError(err)) return;
         const message =
           err instanceof ApiError
             ? err.message
@@ -150,12 +159,21 @@ export default function Dashboard() {
   useEffect(() => {
     if (!selectedCrisisId) return;
     const controller = new AbortController();
+    const generation = ++mapFetchGenerationRef.current;
+    const crisisId = selectedCrisisId;
+
+    setLoading(true);
+    setError(null);
     setAllReports([]);
 
-    fetchCrisisMap(selectedCrisisId, { status: "all" }, controller.signal)
-      .then((mapData) => setAllReports(mapFeaturesToPins(mapData.features)))
+    fetchCrisisMap(crisisId, { status: "all" }, controller.signal)
+      .then((mapData) => {
+        if (generation !== mapFetchGenerationRef.current) return;
+        setError(null);
+        setAllReports(mapFeaturesToPins(mapData.features));
+      })
       .catch((err) => {
-        if (err.name === "AbortError") return;
+        if (generation !== mapFetchGenerationRef.current || isAbortError(err)) return;
         const message =
           err instanceof ApiError
             ? err.message
@@ -163,13 +181,17 @@ export default function Dashboard() {
         setError(message);
         setAllReports([]);
       })
-      .finally(() => setLoading(false));
+      .finally(() => {
+        if (generation === mapFetchGenerationRef.current) {
+          setLoading(false);
+        }
+      });
 
     return () => controller.abort();
   }, [selectedCrisisId, t]);
 
   useEffect(() => {
-    if (!selectedCrisisId) return;
+    if (!selectedCrisisId || loading) return;
     if (centeredCrisisRef.current === selectedCrisisId) return;
 
     const crisis = crisisEvents.find((c) => c.id === selectedCrisisId);
@@ -185,9 +207,14 @@ export default function Dashboard() {
       lng = centroid.lng;
     }
 
+    const radiusMeters =
+      allReports.length > 0
+        ? radiusForReports(allReports, lat, lng)
+        : DEFAULT_RADIUS_METERS;
+
     centeredCrisisRef.current = selectedCrisisId;
-    setViewport((v) => ({ ...v, lat, lng }));
-  }, [selectedCrisisId, crisisEvents, allReports]);
+    setViewport((v) => ({ ...v, lat, lng, radiusMeters }));
+  }, [selectedCrisisId, crisisEvents, allReports, loading]);
 
   const handleRefresh = () => {
     if (selectedCrisisId) {
@@ -349,6 +376,7 @@ export default function Dashboard() {
                   {t("dashboard.activeCrisis")}
                   <select
                     value={selectedCrisisId}
+                    disabled={loading}
                     onChange={(e) => {
                       centeredCrisisRef.current = null;
                       setSelectedCrisisId(e.target.value);
@@ -490,9 +518,16 @@ export default function Dashboard() {
             <CrisisMap
               viewport={viewport}
               reports={reportsInRange}
+              fitReports={allReports}
               selectedReportId={selectedReport?.id}
               crisisName={selectedCrisis?.name}
               mapFocusKey={selectedCrisisId}
+              loading={loading}
+              loadingLabel={
+                selectedCrisis?.name
+                  ? t("dashboard.loadingReportsFor", { crisis: selectedCrisis.name })
+                  : t("dashboard.loadingReports")
+              }
               layoutKey={`${searchPanelOpen}-${feedPanelOpen}`}
               pinDropActive={pinDropMode}
               pickedLocation={pickedLocation}
@@ -541,9 +576,11 @@ export default function Dashboard() {
 
             <div className="absolute bottom-4 left-4 z-[1000] flex items-center gap-2 rounded-lg border border-surface-border bg-surface-raised/95 px-3 py-2 text-xs text-slate-400 backdrop-blur">
               <Crosshair className="h-3.5 w-3.5" />
-              {reportsInRange.length > 0
-                ? t("dashboard.mapReportsEpicenter", { count: reportsInRange.length })
-                : t("dashboard.mapZoomBuildings")}
+              {loading
+                ? t("dashboard.loadingReports")
+                : reportsInRange.length > 0
+                  ? t("dashboard.mapReportsEpicenter", { count: reportsInRange.length })
+                  : t("dashboard.mapZoomBuildings")}
             </div>
           </main>
 
