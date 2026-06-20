@@ -1,3 +1,5 @@
+import { useEffect, useState } from "react";
+
 export type Theme = "light" | "dark";
 
 const STORAGE_KEY = "crisismap-theme";
@@ -26,4 +28,26 @@ export function toggleTheme(): Theme {
 
 export function getCurrentTheme(): Theme {
   return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
+}
+
+export function basemapUrlForTheme(theme: Theme): string {
+  const variant = theme === "light" ? "light_all" : "dark_all";
+  return `https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`;
+}
+
+export function useTheme(): Theme {
+  const [theme, setTheme] = useState<Theme>(getCurrentTheme);
+
+  useEffect(() => {
+    const observer = new MutationObserver(() => {
+      setTheme(getCurrentTheme());
+    });
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+    return () => observer.disconnect();
+  }, []);
+
+  return theme;
 }
