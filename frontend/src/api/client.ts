@@ -425,6 +425,22 @@ export interface PlaceSearchResult {
   place_type?: string | null;
 }
 
+export interface IpLocationResult {
+  available: boolean;
+  latitude?: number | null;
+  longitude?: number | null;
+  country?: string | null;
+  city?: string | null;
+  source?: "ip";
+}
+
+export async function fetchIpLocation(
+  signal?: AbortSignal,
+): Promise<IpLocationResult> {
+  const response = await fetch(`${API_BASE_URL}/geocode/ip-location`, { signal });
+  return parseApiResponse<IpLocationResult>(response);
+}
+
 export async function fetchReverseGeocode(
   lat: number,
   lng: number,

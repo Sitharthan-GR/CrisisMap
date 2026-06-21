@@ -1,7 +1,15 @@
+import { fetchIpLocation } from "../api/client";
+
 export interface GeoCoords {
   latitude: number;
   longitude: number;
   accuracy?: number;
+}
+
+export type LocationSource = "gps" | "ip" | "default";
+
+export interface ResolvedLocation extends GeoCoords {
+  source: LocationSource;
 }
 
 export class GeolocationError extends Error {
@@ -95,4 +103,44 @@ export async function getCurrentLocation(): Promise<GeoCoords> {
     timeout: 30_000,
     maximumAge: 0,
   });
+}
+
+/**
+ * Best-effort user location: GPS → IP (via backend / ISP) → fallback coordinates.
+ */
+export async function resolveApproxUserLocation(fallback: {
+  latitude: number;
+  longitude: number;
+}): Promise<ResolvedLocation> {
+  if (navigator.geolocation && window.isSecureContext) {
+    try {
+      const coords = await getCurrentLocation();
+      return { ...coords, source: "gps" };
+    } catch {
+      // GPS denied, timed out, or unavailable — try IP next.
+    }
+  }
+
+  try {
+    const ip = await fetchIpLocation();
+    if (
+      ip.available &&
+      typeof ip.latitude === "number" &&
+      typeof ip.longitude === "number"
+    ) {
+      return {
+        latitude: ip.latitude,
+        longitude: ip.longitude,
+        source: "ip",
+      };
+    }
+  } catch {
+    // IP lookup failed — use fallback.
+  }
+
+  return {
+    latitude: fallback.latitude,
+    longitude: fallback.longitude,
+    source: "default",
+  };
 }

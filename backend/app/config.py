@@ -40,6 +40,8 @@ class Settings(BaseSettings):
     nominatim_base_url: str = "https://nominatim.openstreetmap.org"
     nominatim_user_agent: str = "CrisisMap/0.1 (rapida-prototype)"
 
+    ip_geolocation_base_url: str = "https://ipwho.is"
+
     what3words_api_key: str | None = None
     what3words_api_url: str = "https://api.what3words.com/v3"
 

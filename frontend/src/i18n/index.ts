@@ -1,5 +1,6 @@
 import i18n from "i18next";
 import { initReactI18next } from "react-i18next";
+import { resolveApproxUserLocation } from "../lib/geolocation";
 
 import {
   isSupportedLanguage,
@@ -105,8 +106,12 @@ const RUSSIAN_COUNTRIES = new Set([
   "belarus",
   "kazakhstan",
   "kyrgyzstan",
+  "ukraine",
   "russian federation",
   "россия",
+  "україна",
+  "украина",
+  "беларусь",
 ]);
 
 const CHINESE_COUNTRIES = new Set([
@@ -182,6 +187,9 @@ export function hasManualLanguageChoice(): boolean {
   return localStorage.getItem(LANGUAGE_MANUAL_KEY) === "1";
 }
 
+let lastLanguageDetectKey = "";
+let lastLanguageDetectAt = 0;
+
 export async function suggestLanguageFromCoords(
   lat: number,
   lng: number,
@@ -192,6 +200,7 @@ export async function suggestLanguageFromCoords(
     );
     if (!response.ok) return null;
     const body = await response.json();
+    // admin_level_1 is the country name from our reverse geocode API
     return countryToLanguage(body?.data?.admin_level_1);
   } catch {
     return null;
@@ -201,12 +210,37 @@ export async function suggestLanguageFromCoords(
 export async function autoDetectLanguageFromLocation(
   lat: number,
   lng: number,
-): Promise<void> {
-  if (hasManualLanguageChoice()) return;
+): Promise<SupportedLanguage | null> {
+  if (hasManualLanguageChoice()) return null;
+
+  const key = `${lat.toFixed(2)},${lng.toFixed(2)}`;
+  const now = Date.now();
+  if (key === lastLanguageDetectKey && now - lastLanguageDetectAt < 30_000) {
+    return null;
+  }
+  lastLanguageDetectKey = key;
+  lastLanguageDetectAt = now;
+
   const suggested = await suggestLanguageFromCoords(lat, lng);
   if (suggested) {
     setAppLanguage(suggested, false);
+    return suggested;
   }
+  return null;
+}
+
+/** Try device GPS, then IP/ISP location, then map coordinates. */
+export async function tryInitialLocationLanguage(
+  fallbackLat: number,
+  fallbackLng: number,
+): Promise<void> {
+  if (hasManualLanguageChoice()) return;
+
+  const resolved = await resolveApproxUserLocation({
+    latitude: fallbackLat,
+    longitude: fallbackLng,
+  });
+  await autoDetectLanguageFromLocation(resolved.latitude, resolved.longitude);
 }
 
 const initialLanguage = detectBrowserLanguage();

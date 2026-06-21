@@ -5,7 +5,8 @@
   },
   "language": {
     "select": "Langue",
-    "autoDetected": "Détectée automatiquement depuis votre appareil"
+    "autoDetected": "Détectée automatiquement selon votre position",
+    "autoDetectedHint": "La langue s'adapte à votre emplacement sur la carte. Choisissez une langue manuellement pour la fixer."
   },
   "nav": {
     "dashboard": "Tableau de bord",

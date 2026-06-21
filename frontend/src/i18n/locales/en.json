@@ -5,7 +5,8 @@
   },
   "language": {
     "select": "Language",
-    "autoDetected": "Auto-detected from your device"
+    "autoDetected": "Auto-detected from your location",
+    "autoDetectedHint": "Language updates from your GPS or network location. Pick a language manually to keep it fixed."
   },
   "nav": {
     "dashboard": "Dashboard",

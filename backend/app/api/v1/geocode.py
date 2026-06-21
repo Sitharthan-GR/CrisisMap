@@ -1,5 +1,5 @@
 import structlog
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 
 from app.dependencies import SettingsDep, SupabaseDep
 from app.schemas.common import success
@@ -35,4 +35,15 @@ async def decode_w3w(
     query: W3WDecodeQuery = Depends(),
 ) -> dict:
     data = await geocoding.decode_what3words(settings, query.words)
+    return success(data.model_dump(mode="json"))
+
+
+@router.get("/ip-location")
+async def ip_location(request: Request, settings: SettingsDep) -> dict:
+    client_ip = geocoding.extract_client_ip(
+        forwarded_for=request.headers.get("x-forwarded-for"),
+        real_ip=request.headers.get("x-real-ip"),
+        direct_host=request.client.host if request.client else None,
+    )
+    data = await geocoding.geolocate_ip(settings, client_ip)
     return success(data.model_dump(mode="json"))

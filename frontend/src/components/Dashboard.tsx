@@ -11,18 +11,19 @@ import {
   searchPlaces,
   type PlaceSearchResult,
 } from "../api/client";
-import { autoDetectLanguageFromLocation } from "../i18n";
+import { autoDetectLanguageFromLocation, tryInitialLocationLanguage } from "../i18n";
 import {
   DEFAULT_CENTER,
   DEFAULT_RADIUS_METERS,
 } from "../lib/constants";
 import {
   filterReportsInRadius,
+  findNearestCrisisId,
   hasValidEpicenter,
   radiusForReports,
   reportsCentroid,
 } from "../lib/geo";
-import { GeolocationError, getCurrentLocation } from "../lib/geolocation";
+import { GeolocationError, getCurrentLocation, resolveApproxUserLocation } from "../lib/geolocation";
 import {
   filterReportsByDamage,
   sortReports,
@@ -85,6 +86,7 @@ export default function Dashboard() {
   const [reportSort, setReportSort] = useState<ReportSort>("newest");
   const centeredCrisisRef = useRef<string | null>(null);
   const mapFetchGenerationRef = useRef(0);
+  const initialLangDetectRef = useRef(false);
 
   const reportsInRange = useMemo(
     () =>
@@ -116,6 +118,32 @@ export default function Dashboard() {
     document.body.classList.toggle("pin-drop-focus", pinDropMode);
     return () => document.body.classList.remove("pin-drop-focus");
   }, [pinDropMode]);
+
+  useEffect(() => {
+    if (initialLangDetectRef.current || loading) return;
+    if (crisisEvents.length === 0) return;
+    initialLangDetectRef.current = true;
+
+    const crisis = crisisEvents.find((c) => c.id === selectedCrisisId) ?? crisisEvents[0];
+    let lat = crisis?.epicenter_lat ?? viewport.lat;
+    let lng = crisis?.epicenter_lng ?? viewport.lng;
+    if (!hasValidEpicenter(lat, lng)) {
+      lat = viewport.lat;
+      lng = viewport.lng;
+    }
+
+    void tryInitialLocationLanguage(lat!, lng!);
+  }, [loading, crisisEvents, selectedCrisisId, viewport.lat, viewport.lng]);
+
+  useEffect(() => {
+    if (loading || !selectedCrisisId) return;
+    const crisis = crisisEvents.find((c) => c.id === selectedCrisisId);
+    if (!crisis) return;
+    let lat = crisis.epicenter_lat;
+    let lng = crisis.epicenter_lng;
+    if (!hasValidEpicenter(lat, lng)) return;
+    void autoDetectLanguageFromLocation(lat!, lng!);
+  }, [selectedCrisisId, crisisEvents, loading]);
 
   const loadData = useCallback(
     async (crisisId: string) => {
@@ -157,13 +185,29 @@ export default function Dashboard() {
       .then((crises) => {
         if (controller.signal.aborted) return;
         setCrisisEvents(crises);
-        if (crises.length > 0) {
-          setSelectedCrisisId((current) => current || crises[0].id);
-        } else {
+        if (crises.length === 0) {
           setSelectedCrisisId("");
           setAllReports([]);
           setLoading(false);
+          return;
         }
+
+        const pickFromCoords = (lat: number, lng: number) => {
+          setSelectedCrisisId(
+            (current) =>
+              current ||
+              findNearestCrisisId(crises, lat, lng) ||
+              crises[0].id,
+          );
+        };
+
+        void resolveApproxUserLocation({
+          latitude: DEFAULT_CENTER.lat,
+          longitude: DEFAULT_CENTER.lng,
+        }).then((resolved) => {
+          if (controller.signal.aborted) return;
+          pickFromCoords(resolved.latitude, resolved.longitude);
+        });
       })
       .catch((err) => {
         if (controller.signal.aborted || isAbortError(err)) return;
@@ -249,6 +293,7 @@ export default function Dashboard() {
         lat: coords.latitude,
         lng: coords.longitude,
       }));
+      selectNearestCrisis(coords.latitude, coords.longitude);
       void autoDetectLanguageFromLocation(coords.latitude, coords.longitude);
       try {
         const geo = await fetchReverseGeocode(coords.latitude, coords.longitude);
@@ -305,12 +350,31 @@ export default function Dashboard() {
     };
   }, [addressQuery]);
 
-  const applyPickedLocation = useCallback((pick: PickedMapLocation) => {
-    setPickedLocation(pick);
-    setViewport((v) => ({ ...v, lat: pick.lat, lng: pick.lng }));
-    setPinDropMode(false);
-    setPlaceResults([]);
-  }, []);
+  const applyPickedLocation = useCallback(
+    (pick: PickedMapLocation) => {
+      setPickedLocation(pick);
+      setViewport((v) => ({ ...v, lat: pick.lat, lng: pick.lng }));
+      setPinDropMode(false);
+      setPlaceResults([]);
+      void autoDetectLanguageFromLocation(pick.lat, pick.lng);
+      if (crisisEvents.length > 0) {
+        const nearestId = findNearestCrisisId(crisisEvents, pick.lat, pick.lng);
+        if (nearestId) {
+          centeredCrisisRef.current = null;
+          setSelectedCrisisId(nearestId);
+        }
+      }
+    },
+    [crisisEvents],
+  );
+
+  const selectNearestCrisis = useCallback((lat: number, lng: number) => {
+    if (crisisEvents.length === 0) return;
+    const nearestId = findNearestCrisisId(crisisEvents, lat, lng);
+    if (!nearestId) return;
+    centeredCrisisRef.current = null;
+    setSelectedCrisisId(nearestId);
+  }, [crisisEvents]);
 
   const selectSearchedPlace = (place: PlaceSearchResult) => {
     applyPickedLocation({

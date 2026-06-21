@@ -5,7 +5,8 @@
   },
   "language": {
     "select": "语言",
-    "autoDetected": "已根据您的设备自动检测"
+    "autoDetected": "根据您的位置自动检测",
+    "autoDetectedHint": "语言会根据您在地图上的位置更新。手动选择语言后将固定不变。"
   },
   "nav": {
     "dashboard": "仪表板",

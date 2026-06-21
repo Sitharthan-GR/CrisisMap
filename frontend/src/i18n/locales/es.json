@@ -5,7 +5,8 @@
   },
   "language": {
     "select": "Idioma",
-    "autoDetected": "Detectado automáticamente desde su dispositivo"
+    "autoDetected": "Detectado automáticamente según su ubicación",
+    "autoDetectedHint": "El idioma se actualiza según su ubicación en el mapa. Elija un idioma manualmente para fijarlo."
   },
   "nav": {
     "dashboard": "Panel",

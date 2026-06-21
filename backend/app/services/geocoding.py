@@ -1,3 +1,4 @@
+import ipaddress
 import math
 from typing import Any
 
@@ -6,7 +7,13 @@ import structlog
 
 from app.config import Settings
 from app.core.exceptions import GeocodeError
-from app.schemas.geocode import ReverseGeocodeOut, W3WDecodeOut, GeocodeSearchOut, GeocodeSearchResult
+from app.schemas.geocode import (
+    GeocodeSearchOut,
+    GeocodeSearchResult,
+    IpLocationOut,
+    ReverseGeocodeOut,
+    W3WDecodeOut,
+)
 
 logger = structlog.get_logger(__name__)
 
@@ -144,4 +151,65 @@ async def decode_what3words(settings: Settings, words: str) -> W3WDecodeOut:
         longitude=coordinates["lng"],
         words=normalized,
         nearest_place=payload.get("nearestPlace"),
+    )
+
+
+def is_public_ip(ip: str) -> bool:
+    try:
+        addr = ipaddress.ip_address(ip.strip())
+        return not (
+            addr.is_private
+            or addr.is_loopback
+            or addr.is_reserved
+            or addr.is_link_local
+        )
+    except ValueError:
+        return False
+
+
+def extract_client_ip(
+    *,
+    forwarded_for: str | None,
+    real_ip: str | None,
+    direct_host: str | None,
+) -> str:
+    if forwarded_for:
+        return forwarded_for.split(",")[0].strip()
+    if real_ip:
+        return real_ip.strip()
+    return (direct_host or "127.0.0.1").strip()
+
+
+async def geolocate_ip(settings: Settings, ip: str) -> IpLocationOut:
+    if not is_public_ip(ip):
+        logger.info("ip_geolocation_skipped", ip=ip, reason="private_or_local")
+        return IpLocationOut(available=False)
+
+    url = f"{settings.ip_geolocation_base_url}/{ip}"
+    async with httpx.AsyncClient(timeout=8.0) as client:
+        try:
+            response = await client.get(url)
+        except httpx.RequestError as exc:
+            logger.warning("ip_geolocation_failed", ip=ip, error=str(exc))
+            return IpLocationOut(available=False)
+
+    if response.status_code >= 400:
+        return IpLocationOut(available=False)
+
+    payload = response.json()
+    if not payload.get("success"):
+        return IpLocationOut(available=False)
+
+    try:
+        lat = float(payload["latitude"])
+        lng = float(payload["longitude"])
+    except (KeyError, TypeError, ValueError):
+        return IpLocationOut(available=False)
+
+    return IpLocationOut(
+        available=True,
+        latitude=lat,
+        longitude=lng,
+        country=payload.get("country"),
+        city=payload.get("city"),
     )

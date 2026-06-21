@@ -156,6 +156,7 @@ export default function LanguageSwitcher({
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={t("language.select")}
+        title={t("language.autoDetectedHint")}
       >
         <Globe className={variant === "button" || compact ? "h-4 w-4" : "h-3.5 w-3.5"} />
         <span className="font-medium uppercase">{current.code}</span>

@@ -39,3 +39,12 @@ class W3WDecodeOut(BaseModel):
     longitude: float
     words: str
     nearest_place: str | None = None
+
+
+class IpLocationOut(BaseModel):
+    available: bool
+    latitude: float | None = None
+    longitude: float | None = None
+    country: str | None = None
+    city: str | None = None
+    source: str = "ip"
