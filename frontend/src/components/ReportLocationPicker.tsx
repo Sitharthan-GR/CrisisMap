@@ -1,4 +1,5 @@
 import L from "leaflet";
+import "leaflet/dist/leaflet.css";
 import { Crosshair, MousePointerClick, Search } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
@@ -111,12 +112,17 @@ export default function ReportLocationPicker({
   const hasCoords = Boolean(latitude && longitude);
   const lat = hasCoords ? Number(latitude) : DEFAULT_CENTER.lat;
   const lng = hasCoords ? Number(longitude) : DEFAULT_CENTER.lng;
-  const shortLabel = placeLabel ? shortAddress(placeLabel) : "";
+  const genericLocationLabel = t("wizard.currentLocation");
+  const hasAddress =
+    Boolean(placeLabel) && placeLabel !== genericLocationLabel;
+  const addressLine = hasAddress ? shortAddress(placeLabel) : "";
 
   const locationTitle =
     locationStatus === "detecting"
       ? t("wizard.detecting")
-      : shortLabel || t("wizard.currentLocation");
+      : hasAddress
+        ? addressLine
+        : genericLocationLabel;
 
   const handleGps = () => {
     setMode("gps");
@@ -144,10 +150,8 @@ export default function ReportLocationPicker({
     }
   };
 
-  const showSearchPanel =
-    searchingPlaces ||
-    placeResults.length > 0 ||
-    (addressQuery.trim().length >= 2 && !searchingPlaces && mode === "search");
+  const trimmedQuery = addressQuery.trim();
+  const showSearchPanel = trimmedQuery.length >= 2;
 
   return (
     <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised/40">
@@ -173,13 +177,51 @@ export default function ReportLocationPicker({
             ref={searchRef}
             type="search"
             value={addressQuery}
-            onChange={(e) => onAddressQueryChange(e.target.value)}
+            onChange={(e) => {
+              setMode("search");
+              onAddressQueryChange(e.target.value);
+            }}
             onFocus={() => setMode("search")}
             placeholder={t("wizard.addressPlaceholder")}
             className="report-wizard-field py-2.5 ps-10 pe-3 border-accent-line focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
             autoComplete="off"
             disabled={isOffline}
           />
+
+          {showSearchPanel && (
+            <div className="absolute inset-x-0 top-full z-[1000] mt-1">
+              {searchingPlaces && (
+                <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-ink-faint shadow-panel">
+                  {t("wizard.searchingPlaces")}
+                </p>
+              )}
+
+              {!searchingPlaces &&
+                trimmedQuery.length >= 2 &&
+                placeResults.length === 0 && (
+                  <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-ink-faint shadow-panel">
+                    {t("wizard.noPlacesFound")}
+                  </p>
+                )}
+
+              {placeResults.length > 0 && (
+                <ul className="max-h-36 overflow-y-auto rounded-lg border border-surface-border bg-surface shadow-panel">
+                  {placeResults.map((place) => (
+                    <li key={`${place.place_id ?? place.display_name}-${place.latitude}`}>
+                      <button
+                        type="button"
+                        onClick={() => handleSelectPlace(place)}
+                        className="w-full px-3 py-2.5 text-start text-sm text-ink-dim transition hover:bg-surface-raised"
+                        title={place.display_name}
+                      >
+                        {shortAddress(place.display_name)}
+                      </button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          )}
         </div>
 
         {isOffline && mode === "search" && (
@@ -188,48 +230,13 @@ export default function ReportLocationPicker({
           </p>
         )}
 
-        {showSearchPanel && (
-          <div className="relative z-10 mt-1">
-            {searchingPlaces && (
-              <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-ink-faint">
-                {t("wizard.searchingPlaces")}
-              </p>
-            )}
-
-            {!searchingPlaces &&
-              addressQuery.trim().length >= 2 &&
-              placeResults.length === 0 && (
-                <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-ink-faint">
-                  {t("wizard.noPlacesFound")}
-                </p>
-              )}
-
-            {placeResults.length > 0 && (
-              <ul className="max-h-36 overflow-y-auto rounded-lg border border-surface-border bg-surface shadow-panel">
-                {placeResults.map((place) => (
-                  <li key={`${place.place_id ?? place.display_name}-${place.latitude}`}>
-                    <button
-                      type="button"
-                      onClick={() => handleSelectPlace(place)}
-                      className="w-full px-3 py-2.5 text-start text-sm text-ink-dim transition hover:bg-surface-raised"
-                      title={place.display_name}
-                    >
-                      {shortAddress(place.display_name)}
-                    </button>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </div>
-        )}
-
-        <div className="relative mt-3 overflow-hidden rounded-lg border border-surface-border">
+        <div className="relative mt-3 h-[200px] overflow-hidden rounded-lg border border-surface-border">
           <MapContainer
             center={[lat, lng]}
             zoom={hasCoords ? 16 : 4}
             minZoom={2}
             maxZoom={19}
-            className="h-[200px] w-full"
+            className="h-full w-full"
             scrollWheelZoom
             dragging
             doubleClickZoom
@@ -276,22 +283,22 @@ export default function ReportLocationPicker({
                 <p className="truncate text-sm font-medium text-ink">
                   {hasCoords ? locationTitle : t("wizard.locationUnknown")}
                 </p>
+                {hasCoords && hasAddress && placeLabel !== addressLine && (
+                  <p
+                    className="mt-0.5 line-clamp-2 text-xs text-ink-dim"
+                    title={placeLabel}
+                  >
+                    {placeLabel}
+                  </p>
+                )}
                 {hasCoords && (
-                  <p className="mt-0.5 font-mono text-xs text-ink-dim">
+                  <p className="mt-0.5 font-mono text-xs text-ink-faint">
                     {Number(latitude).toFixed(4)}, {Number(longitude).toFixed(4)}
                   </p>
                 )}
                 {isOffline && hasCoords && (
                   <p className="mt-1 text-[11px] text-sky-300/90">
                     {t("wizard.offlineCoordinatesHint")}
-                  </p>
-                )}
-                {placeLabel && placeLabel !== shortLabel && hasCoords && (
-                  <p
-                    className="mt-1 line-clamp-2 text-[11px] text-ink-faint"
-                    title={placeLabel}
-                  >
-                    {placeLabel}
                   </p>
                 )}
               </div>

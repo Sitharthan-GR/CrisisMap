@@ -1,3 +1,20 @@
+export interface GeocodeLabelFields {
+  display_name?: string | null;
+  admin_level_1?: string | null;
+  admin_level_2?: string | null;
+  admin_level_3?: string | null;
+}
+
+/** Prefer full display name, then admin levels, then fallback. */
+export function resolveGeocodeLabel(
+  geo: GeocodeLabelFields,
+  fallback: string,
+): string {
+  const display = geo.display_name?.trim();
+  if (display) return display;
+  return briefLocationFromAdmin(geo) ?? fallback;
+}
+
 /** Shorten a Nominatim-style comma-separated address for compact UI. */
 export function shortAddress(full: string, maxParts = 3): string {
   const trimmed = full.trim();

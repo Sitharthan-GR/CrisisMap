@@ -29,6 +29,7 @@ import {
   resolveReporterName,
   saveReporterName,
 } from "../lib/reporterName";
+import { resolveGeocodeLabel } from "../lib/address";
 import type { FormFieldDefinition, FormTemplate } from "../types/formTemplate";
 import { fieldTypeHasOptions } from "../types/formTemplate";
 import type { Crisis, Report, ReportCreateInput } from "../types/report";
@@ -114,14 +115,16 @@ export default function CustomReportWizard({
       const coords = await getCurrentLocation();
       setLatitude(coords.latitude.toFixed(6));
       setLongitude(coords.longitude.toFixed(6));
-      setLocationStatus("detected");
+      const fallback = t("wizard.currentLocation");
       try {
         const geo = await fetchReverseGeocode(coords.latitude, coords.longitude);
-        setPlaceLabel(geo.display_name ?? t("wizard.currentLocation"));
-        setAddressQuery(geo.display_name ?? "");
+        const label = resolveGeocodeLabel(geo, fallback);
+        setPlaceLabel(label);
+        setAddressQuery(label !== fallback ? label : "");
       } catch {
-        setPlaceLabel(t("wizard.currentLocation"));
+        setPlaceLabel(fallback);
       }
+      setLocationStatus("detected");
     } catch {
       setLocationStatus("failed");
     }
@@ -566,7 +569,7 @@ export default function CustomReportWizard({
               setLocationStatus("detected");
               void fetchReverseGeocode(lat, lng)
                 .then((geo) => {
-                  const label = geo.display_name ?? t("map.pickedLocation");
+                  const label = resolveGeocodeLabel(geo, t("map.pickedLocation"));
                   setPlaceLabel(label);
                   setAddressQuery(label);
                 })

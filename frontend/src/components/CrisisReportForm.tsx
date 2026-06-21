@@ -49,6 +49,7 @@ import {
   resolveReporterName,
   saveReporterName,
 } from "../lib/reporterName";
+import { resolveGeocodeLabel } from "../lib/address";
 import {
   damageLevelLabel,
   infraTypeLabel,
@@ -459,14 +460,19 @@ export default function CrisisReportForm() {
       const coords = await getCurrentLocation();
       setLatitude(coords.latitude.toFixed(6));
       setLongitude(coords.longitude.toFixed(6));
-      setLocationStatus("detected");
       void autoDetectLanguageFromLocation(coords.latitude, coords.longitude);
+      const fallback = t("wizard.currentLocation");
       try {
         const geo = await fetchReverseGeocode(coords.latitude, coords.longitude);
-        setPlaceLabel(geo.display_name ?? t("wizard.currentLocation"));
+        const label = resolveGeocodeLabel(geo, fallback);
+        setPlaceLabel(label);
+        if (label !== fallback) {
+          setAddressQuery(label);
+        }
       } catch {
-        setPlaceLabel(t("wizard.currentLocation"));
+        setPlaceLabel(fallback);
       }
+      setLocationStatus("detected");
       refreshNearestCrisis(coords.latitude, coords.longitude);
     } catch {
       setLocationStatus("failed");
@@ -522,7 +528,7 @@ export default function CrisisReportForm() {
     setError(null);
     void fetchReverseGeocode(lat, lng)
       .then((geo) => {
-        const label = geo.display_name ?? t("map.pickedLocation");
+        const label = resolveGeocodeLabel(geo, t("map.pickedLocation"));
         setPlaceLabel(label);
         setAddressQuery(label);
       })
