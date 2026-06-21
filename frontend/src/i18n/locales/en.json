@@ -458,6 +458,11 @@
   },
   "reportDetail": {
     "title": "Report details",
+    "share": "Share",
+    "shareCopied": "Link copied to clipboard",
+    "shareShared": "Link shared",
+    "shareFailed": "Could not share link",
+    "shareTitle": "Crisis damage report",
     "tabInfo": "Info",
     "tabPhotos": "Photos",
     "tabHistory": "History",

@@ -898,6 +898,31 @@ select.field {
   color: var(--text-faint);
 }
 
+.rd-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-right: 40px;
+}
+
+.rd-delete-btn {
+  border-color: var(--dmg-complete);
+  color: var(--dmg-complete-ink);
+}
+
+.rd-share-btn {
+  height: 28px;
+  padding: 0 8px;
+  font-size: 11px;
+  border-radius: 8px;
+  gap: 4px;
+}
+
+.rd-share-btn svg {
+  width: 13px;
+  height: 13px;
+}
+
 .rd-body {
   margin-top: 14px;
 }

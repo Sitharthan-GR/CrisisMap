@@ -13,6 +13,7 @@ export default function App() {
       <Routes>
         <Route element={<MobileAppLayout />}>
           <Route path="/" element={<Dashboard />} />
+          <Route path="/reports/:reportId" element={<Dashboard />} />
           <Route path="/report" element={<CrisisReportForm />} />
         </Route>
         <Route path="/admin" element={<AdminPage />} />

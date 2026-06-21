@@ -1,8 +1,9 @@
-import { Trash2, X } from "lucide-react";
+import { Share2, Trash2, X } from "lucide-react";
 import { useState } from "react";
 import { useTranslation } from "react-i18next";
 import { ApiError, adminDeleteReport } from "../api/client";
 import { getAdminToken, isAdminAuthenticated } from "../lib/adminAuth";
+import { shareReportLink } from "../lib/reportShare";
 import ReportDetailContent from "./ReportDetailContent";
 
 interface ReportMapOverlayProps {
@@ -23,7 +24,20 @@ export default function ReportMapOverlay({
   const { t } = useTranslation();
   const [deleting, setDeleting] = useState(false);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+  const [shareHint, setShareHint] = useState<string | null>(null);
   const canDelete = isAdminAuthenticated();
+
+  const handleShare = async () => {
+    const result = await shareReportLink(reportId, t("reportDetail.shareTitle"));
+    if (result === "shared") {
+      setShareHint(t("reportDetail.shareShared"));
+    } else if (result === "copied") {
+      setShareHint(t("reportDetail.shareCopied"));
+    } else {
+      setShareHint(t("reportDetail.shareFailed"));
+    }
+    window.setTimeout(() => setShareHint(null), 2500);
+  };
 
   const handleDelete = async () => {
     const token = getAdminToken();
@@ -49,22 +63,28 @@ export default function ReportMapOverlay({
     <div className="rd-overlay">
       <div className="rd-eyebrow">
         <span className="label">{t("reportDetail.title")}</span>
-        {canDelete && (
+        <div className="rd-actions">
           <button
             type="button"
-            onClick={() => void handleDelete()}
-            disabled={deleting}
-            className="btn btn-sm"
-            style={{
-              marginRight: 40,
-              borderColor: "var(--dmg-complete)",
-              color: "var(--dmg-complete-ink)",
-            }}
+            onClick={() => void handleShare()}
+            className="btn btn-sm rd-share-btn"
+            title={t("reportDetail.share")}
           >
-            <Trash2 strokeWidth={2} />
-            {deleting ? t("admin.deletingReport") : t("admin.deleteReport")}
+            <Share2 strokeWidth={2} />
+            {t("reportDetail.share")}
           </button>
-        )}
+          {canDelete && (
+            <button
+              type="button"
+              onClick={() => void handleDelete()}
+              disabled={deleting}
+              className="btn btn-sm rd-delete-btn"
+            >
+              <Trash2 strokeWidth={2} />
+              {deleting ? t("admin.deletingReport") : t("admin.deleteReport")}
+            </button>
+          )}
+        </div>
       </div>
       <button
         type="button"
@@ -80,6 +100,11 @@ export default function ReportMapOverlay({
           style={{ color: "var(--dmg-complete-ink)", marginBottom: 8 }}
         >
           {deleteError}
+        </div>
+      )}
+      {shareHint && (
+        <div className="hint" style={{ color: "var(--accent)", marginBottom: 8 }}>
+          {shareHint}
         </div>
       )}
       <div className="rd-body">

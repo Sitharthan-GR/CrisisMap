@@ -1,11 +1,12 @@
 import { Crosshair, MapPin, MapPinPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate } from "react-router-dom";
+import { useNavigate, useParams } from "react-router-dom";
 import {
   ApiError,
   fetchActiveCrises,
   fetchCrisisMap,
+  fetchReportDetail,
   fetchReverseGeocode,
   isAbortError,
   searchPlaces,
@@ -32,7 +33,7 @@ import {
 } from "../lib/reportFilters";
 import type { MapViewport } from "../types/crisis";
 import type { PickedMapLocation } from "../types/location";
-import type { Crisis, MapFeatureCollection, MapReportPin } from "../types/report";
+import type { Crisis, MapFeatureCollection, MapReportPin, ReportDetail } from "../types/report";
 import type { BuildingPick } from "./BuildingFootprints";
 import CrisisMap from "./CrisisMap";
 import CrisisSearchRail from "./CrisisSearchRail";
@@ -40,6 +41,20 @@ import DashboardHeader from "./DashboardHeader";
 import LiveActivityFeed from "./LiveActivityFeed";
 import { useMobileNav } from "../lib/MobileNavContext";
 import { MOBILE_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
+
+function reportDetailToPin(detail: ReportDetail): MapReportPin | null {
+  if (!detail.location) return null;
+  return {
+    id: detail.id,
+    locationId: detail.location_id,
+    latitude: detail.location.latitude,
+    longitude: detail.location.longitude,
+    damageLevel: detail.damage_level,
+    infraType: detail.infra_type,
+    reportCount: 1,
+    adminLevel2: detail.location.admin_level_2,
+  };
+}
 
 function mapFeaturesToPins(
   features: MapFeatureCollection["features"],
@@ -60,6 +75,7 @@ function mapFeaturesToPins(
 export default function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
+  const { reportId: sharedReportId } = useParams<{ reportId?: string }>();
   const [viewport, setViewport] = useState<MapViewport>({
     lat: DEFAULT_CENTER.lat,
     lng: DEFAULT_CENTER.lng,
@@ -87,6 +103,7 @@ export default function Dashboard() {
   const centeredCrisisRef = useRef<string | null>(null);
   const mapFetchGenerationRef = useRef(0);
   const initialLangDetectRef = useRef(false);
+  const sharedReportTargetRef = useRef<ReportDetail | null>(null);
 
   const reportsInRange = useMemo(
     () =>
@@ -206,6 +223,7 @@ export default function Dashboard() {
           longitude: DEFAULT_CENTER.lng,
         }).then((resolved) => {
           if (controller.signal.aborted) return;
+          if (sharedReportId) return;
           pickFromCoords(resolved.latitude, resolved.longitude);
         });
       })
@@ -219,7 +237,33 @@ export default function Dashboard() {
       });
 
     return () => controller.abort();
-  }, [t]);
+  }, [t, sharedReportId]);
+
+  useEffect(() => {
+    if (!sharedReportId) {
+      sharedReportTargetRef.current = null;
+      return;
+    }
+
+    const controller = new AbortController();
+    fetchReportDetail(sharedReportId, controller.signal)
+      .then((detail) => {
+        centeredCrisisRef.current = null;
+        sharedReportTargetRef.current = detail;
+        setSelectedCrisisId(detail.crisis_id);
+      })
+      .catch((err) => {
+        if (isAbortError(err)) return;
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : t("reportDetail.loadFailed"),
+        );
+        navigate("/", { replace: true });
+      });
+
+    return () => controller.abort();
+  }, [sharedReportId, navigate, t]);
 
   useEffect(() => {
     if (!selectedCrisisId) return;
@@ -252,6 +296,31 @@ export default function Dashboard() {
 
     return () => controller.abort();
   }, [selectedCrisisId, t]);
+
+  useEffect(() => {
+    const sharedDetail = sharedReportTargetRef.current;
+    if (!sharedDetail || loading || selectedCrisisId !== sharedDetail.crisis_id) {
+      return;
+    }
+
+    const pin =
+      allReports.find((report) => report.id === sharedDetail.id) ??
+      reportDetailToPin(sharedDetail);
+
+    if (pin) {
+      setSelectedReport(pin);
+      setViewport((current) => ({
+        ...current,
+        lat: pin.latitude,
+        lng: pin.longitude,
+      }));
+      if (isMobile) {
+        setMobilePanel("map");
+      }
+    }
+
+    sharedReportTargetRef.current = null;
+  }, [allReports, loading, selectedCrisisId, isMobile, setMobilePanel]);
 
   useEffect(() => {
     if (!selectedCrisisId || loading) return;
@@ -430,11 +499,17 @@ export default function Dashboard() {
 
   const handleSelectReport = (report: MapReportPin) => {
     setSelectedReport(report);
+    navigate(`/reports/${report.id}`, { replace: true });
     if (isMobile) {
       setMobilePanel("map");
     } else {
       setFeedOpen(false);
     }
+  };
+
+  const handleClearReport = () => {
+    setSelectedReport(null);
+    navigate("/", { replace: true });
   };
 
   const handleMobileBackdropClose = () => {
@@ -448,6 +523,7 @@ export default function Dashboard() {
     centeredCrisisRef.current = null;
     setSelectedCrisisId(crisisId);
     setSelectedReport(null);
+    navigate("/", { replace: true });
   };
 
   const handleTogglePinDrop = () => {
@@ -572,8 +648,9 @@ export default function Dashboard() {
               setSelectedReport((prev) =>
                 prev ? { ...prev, id: reportId } : prev,
               );
+              navigate(`/reports/${reportId}`, { replace: true });
             }}
-            onClearReport={() => setSelectedReport(null)}
+            onClearReport={handleClearReport}
             onReportDeleted={() => {
               setSelectedReport(null);
               if (selectedCrisisId) {
