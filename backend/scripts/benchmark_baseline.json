@@ -1,0 +1,147 @@
+{
+  "timestamp": "2026-06-21T22:17:40Z",
+  "base_url": "http://127.0.0.1:8000/api/v1",
+  "crisis_id": "716cd5eb-5d77-4a8f-abe4-87bd39509ba3",
+  "map_pin_count": 1,
+  "sample_report_id": "b8170d8f-58e9-49e5-b86f-b8e8cfda8b8b",
+  "endpoints": [
+    {
+      "name": "health",
+      "path": "/health",
+      "runs": 10,
+      "min_ms": 1.0,
+      "p50_ms": 1.3,
+      "p95_ms": 1.7,
+      "max_ms": 2.2,
+      "avg_ms": 1.4,
+      "bytes": 69,
+      "ok": true
+    },
+    {
+      "name": "ready",
+      "path": "/ready",
+      "runs": 10,
+      "min_ms": 182.0,
+      "p50_ms": 205.3,
+      "p95_ms": 331.7,
+      "max_ms": 370.2,
+      "avg_ms": 250.6,
+      "bytes": 42,
+      "ok": true
+    },
+    {
+      "name": "reporting-options",
+      "path": "/crises/reporting-options?lat=35.9606&lng=-83.9207",
+      "runs": 10,
+      "min_ms": 389.0,
+      "p50_ms": 438.4,
+      "p95_ms": 567.1,
+      "max_ms": 794.6,
+      "avg_ms": 484.5,
+      "bytes": 9472,
+      "ok": true
+    },
+    {
+      "name": "list-crises",
+      "path": "/crises?status=active",
+      "runs": 10,
+      "min_ms": 190.3,
+      "p50_ms": 207.4,
+      "p95_ms": 214.7,
+      "max_ms": 223.6,
+      "avg_ms": 206.2,
+      "bytes": 9342,
+      "ok": true
+    },
+    {
+      "name": "get-crisis",
+      "path": "/crises/716cd5eb-5d77-4a8f-abe4-87bd39509ba3",
+      "runs": 10,
+      "min_ms": 185.7,
+      "p50_ms": 201.3,
+      "p95_ms": 220.0,
+      "max_ms": 236.1,
+      "avg_ms": 205.5,
+      "bytes": 377,
+      "ok": true
+    },
+    {
+      "name": "crisis-map",
+      "path": "/crises/716cd5eb-5d77-4a8f-abe4-87bd39509ba3/map?status=all",
+      "runs": 10,
+      "min_ms": 991.2,
+      "p50_ms": 1011.5,
+      "p95_ms": 1145.3,
+      "max_ms": 1259.2,
+      "avg_ms": 1046.8,
+      "bytes": 396,
+      "ok": true
+    },
+    {
+      "name": "crisis-map-validated",
+      "path": "/crises/716cd5eb-5d77-4a8f-abe4-87bd39509ba3/map?status=validated",
+      "runs": 10,
+      "min_ms": 569.1,
+      "p50_ms": 593.9,
+      "p95_ms": 606.2,
+      "max_ms": 637.5,
+      "avg_ms": 594.3,
+      "bytes": 74,
+      "ok": true
+    },
+    {
+      "name": "crisis-reports-p50",
+      "path": "/crises/716cd5eb-5d77-4a8f-abe4-87bd39509ba3/reports?limit=50&page=1",
+      "runs": 10,
+      "min_ms": 586.6,
+      "p50_ms": 622.1,
+      "p95_ms": 702.5,
+      "max_ms": 1016.3,
+      "avg_ms": 664.1,
+      "bytes": 1078,
+      "ok": true
+    },
+    {
+      "name": "geocode-reverse",
+      "path": "/geocode/reverse?lat=35.9610&lng=-83.9298",
+      "runs": 10,
+      "min_ms": 120.7,
+      "p50_ms": 131.0,
+      "p95_ms": 143.8,
+      "max_ms": 146.2,
+      "avg_ms": 132.8,
+      "bytes": 238,
+      "ok": true
+    },
+    {
+      "name": "geocode-search",
+      "path": "/geocode/search?q=knoxville&limit=5",
+      "ok": false,
+      "error": "HTTP Error 500: Internal Server Error"
+    },
+    {
+      "name": "report-detail",
+      "path": "/reports/b8170d8f-58e9-49e5-b86f-b8e8cfda8b8b",
+      "runs": 10,
+      "min_ms": 591.7,
+      "p50_ms": 624.8,
+      "p95_ms": 664.7,
+      "max_ms": 669.9,
+      "avg_ms": 627.8,
+      "bytes": 1021,
+      "ok": true
+    },
+    {
+      "name": "report-versions",
+      "path": "/reports/b8170d8f-58e9-49e5-b86f-b8e8cfda8b8b/versions",
+      "runs": 10,
+      "min_ms": 392.9,
+      "p50_ms": 414.2,
+      "p95_ms": 433.9,
+      "max_ms": 441.6,
+      "avg_ms": 414.3,
+      "bytes": 1230,
+      "ok": true
+    }
+  ]
+}
