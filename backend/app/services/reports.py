@@ -17,7 +17,7 @@ from app.schemas.report import (
     ReportVersionOut,
 )
 from app.services.crisis import get_crisis, require_active_crisis
-from app.services.geocoding import haversine_meters, reverse_geocode
+from app.services.geocoding import reverse_geocode
 from app.services.supabase import SupabaseClient
 
 logger = structlog.get_logger(__name__)
@@ -134,24 +134,16 @@ async def _find_or_create_location(
     location_method: str,
     building_footprint_id: str | None,
 ) -> dict[str, Any]:
-    delta = settings.location_match_tolerance_meters / 111_000
-    candidates, _ = await supabase.select(
-        "location",
-        filters=[
-            ("latitude", f"gte.{latitude - delta}"),
-            ("latitude", f"lte.{latitude + delta}"),
-            ("longitude", f"gte.{longitude - delta}"),
-            ("longitude", f"lte.{longitude + delta}"),
-        ],
-        limit=50,
+    rpc_rows = await supabase.rpc(
+        "find_location_within_meters",
+        {
+            "p_lat": latitude,
+            "p_lng": longitude,
+            "p_tolerance_meters": settings.location_match_tolerance_meters,
+        },
     )
-
-    for candidate in candidates:
-        distance = haversine_meters(
-            latitude, longitude, candidate["latitude"], candidate["longitude"]
-        )
-        if distance <= settings.location_match_tolerance_meters:
-            return candidate
+    if rpc_rows:
+        return rpc_rows[0]
 
     geocode = await reverse_geocode(settings, latitude, longitude)
     return await supabase.insert(
@@ -215,14 +207,23 @@ async def create_report(
 
 
 async def get_report(supabase: SupabaseClient, report_id: str) -> ReportOut:
-    row = await supabase.select_one(
-        "report",
-        columns=f"{REPORT_SELECT},location({LOCATION_SELECT})",
-        filters=[("id", f"eq.{report_id}")],
-    )
-    if not row:
+    payload = await _load_report_payload(supabase, report_id)
+    return _report_out(payload["report"], payload.get("location"))
+
+
+async def get_report_detail(
+    supabase: SupabaseClient, report_id: str
+) -> tuple[ReportOut, list[dict[str, Any]]]:
+    payload = await _load_report_payload(supabase, report_id)
+    photo_rows = payload.get("photos") or []
+    return _report_out(payload["report"], payload.get("location")), photo_rows
+
+
+async def _load_report_payload(supabase: SupabaseClient, report_id: str) -> dict[str, Any]:
+    payload = await supabase.rpc("get_report_with_photos", {"p_report_id": report_id})
+    if not isinstance(payload, dict) or not payload.get("report"):
         raise NotFoundError("Report not found")
-    return _report_out(row)
+    return payload
 
 
 async def update_report_status(

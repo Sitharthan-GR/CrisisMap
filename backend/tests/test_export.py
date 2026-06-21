@@ -69,6 +69,9 @@ def _mock_export_rows(mock_supabase: AsyncMock) -> None:
         return ([], 0)
 
     mock_supabase.select.side_effect = select_side_effect
+    mock_supabase.rpc.return_value = [
+        {"report_id": "report-uuid-1", "photo_count": 1},
+    ]
 
 
 @pytest.mark.asyncio

@@ -189,6 +189,32 @@ Use the **Time** column for end-to-end latency including network.
 3. Compare **p50 and p95**, not just average.
 4. Re-benchmark after seeding realistic volumes (100–1000+ reports) — improvements are most visible at scale.
 
+### Supabase SQL (indexes + stored procedures)
+
+Apply `migrations/004_performance.sql` in the Supabase SQL Editor. It adds:
+
+| Object | Purpose |
+|--------|---------|
+| **Indexes** on `report`, `location`, `photo`, `crisis` | Speed filters used by map, lists, export |
+| `get_crisis_map_pins(...)` | **Highest impact** — one query for all map pins + latest photo path |
+| `get_reporting_options_data()` | Active crises + unlisted id in one call |
+| `find_location_within_meters(...)` | PostGIS location dedup on report create |
+| `get_photo_counts(uuid[])` | Batch photo counts for export |
+| `get_report_with_photos(uuid)` | Report + location + photos in one call |
+
+Quick test in SQL Editor after applying:
+
+```sql
+SELECT * FROM get_crisis_map_pins(
+  '<your-crisis-uuid>'::uuid,
+  'all', NULL, NULL, NULL, NULL, NULL, NULL
+);
+
+SELECT get_reporting_options_data();
+```
+
+The FastAPI service layer calls these RPCs via `supabase.rpc(...)` in `map.py`, `crisis.py`, `reports.py`, `photos.py`, and `export.py`. Indexes help immediately; RPCs reduce round-trips at scale.
+
 ## Production notes
 
 1. Run with multiple workers: `uvicorn app.main:app --workers 4` (see Dockerfile).

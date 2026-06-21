@@ -77,15 +77,11 @@ SHAPEFILE_FIELDS: list[tuple[str, str, int, int]] = [
 async def _photo_counts(supabase: SupabaseClient, report_ids: list[str]) -> dict[str, int]:
     if not report_ids:
         return {}
-    counts: dict[str, int] = {}
-    for report_id in report_ids:
-        photos, _ = await supabase.select(
-            "photo",
-            columns="id",
-            filters=[("report_id", f"eq.{report_id}")],
-            limit=1000,
-        )
-        counts[report_id] = len(photos)
+
+    rows = await supabase.rpc("get_photo_counts", {"p_report_ids": report_ids})
+    counts = {report_id: 0 for report_id in report_ids}
+    for row in rows or []:
+        counts[row["report_id"]] = int(row["photo_count"])
     return counts
 
 

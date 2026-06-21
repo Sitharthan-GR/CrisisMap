@@ -112,14 +112,25 @@ async def get_reporting_options(
     lat: float | None = None,
     lng: float | None = None,
 ) -> ReportingOptionsOut:
-    crises = await list_reportable_crises(supabase)
-    unlisted = await get_or_create_unlisted_crisis(supabase)
+    data = await supabase.rpc("get_reporting_options_data", {})
+    if not isinstance(data, dict):
+        data = {}
+
+    crisis_rows = data.get("crises") or []
+    crises = [_row_to_crisis(row) for row in crisis_rows]
+
+    unlisted_id = data.get("unlisted_crisis_id")
+    if not unlisted_id:
+        unlisted = await get_or_create_unlisted_crisis(supabase)
+        unlisted_id = unlisted.id
+
     nearest: str | None = None
     if lat is not None and lng is not None:
         nearest = nearest_crisis_id(crises, lat, lng)
+
     return ReportingOptionsOut(
         crises=crises,
-        unlisted_crisis_id=unlisted.id,
+        unlisted_crisis_id=unlisted_id,
         nearest_crisis_id=nearest,
     )
 

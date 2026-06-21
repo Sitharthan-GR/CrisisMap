@@ -57,6 +57,7 @@ REPORT_ROW = {
 @pytest.fixture
 def mock_supabase() -> AsyncMock:
     client = AsyncMock(spec=SupabaseClient)
+    client.rpc.return_value = []
     client.insert.return_value = REPORT_ROW
     client.select.return_value = ([], 0)
     client.select_one.side_effect = _select_one_side_effect
@@ -128,10 +129,18 @@ async def test_create_report(client: AsyncClient, mock_supabase, monkeypatch) ->
 
 @pytest.mark.asyncio
 async def test_get_report_includes_photos(client: AsyncClient, mock_supabase) -> None:
-    mock_supabase.select.return_value = ([], 0)
+    mock_supabase.rpc.return_value = {
+        "report": REPORT_ROW,
+        "location": LOCATION_ROW,
+        "photos": [],
+    }
 
     response = await client.get("/api/v1/reports/report-uuid-1")
 
     assert response.status_code == 200
     body = response.json()
     assert body["data"]["photos"] == []
+    mock_supabase.rpc.assert_called_with(
+        "get_report_with_photos",
+        {"p_report_id": "report-uuid-1"},
+    )

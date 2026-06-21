@@ -24,8 +24,8 @@ async def create_report(
 
 @router.get("/{report_id}")
 async def get_report(report_id: str, supabase: SupabaseDep) -> dict:
-    report = await report_service.get_report(supabase, report_id)
-    photos = await photo_service.list_report_photos(supabase, report_id)
+    report, photo_rows = await report_service.get_report_detail(supabase, report_id)
+    photos = await photo_service.photos_from_rows(supabase, photo_rows)
     body = report.model_dump(mode="json")
     body["photos"] = [photo.model_dump(mode="json") for photo in photos]
     return success(body)

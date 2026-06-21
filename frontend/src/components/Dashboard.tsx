@@ -104,6 +104,8 @@ export default function Dashboard() {
   const mapFetchGenerationRef = useRef(0);
   const initialLangDetectRef = useRef(false);
   const sharedReportTargetRef = useRef<ReportDetail | null>(null);
+  const sharedReportIdRef = useRef(sharedReportId);
+  sharedReportIdRef.current = sharedReportId;
 
   const reportsInRange = useMemo(
     () =>
@@ -223,7 +225,7 @@ export default function Dashboard() {
           longitude: DEFAULT_CENTER.lng,
         }).then((resolved) => {
           if (controller.signal.aborted) return;
-          if (sharedReportId) return;
+          if (sharedReportIdRef.current) return;
           pickFromCoords(resolved.latitude, resolved.longitude);
         });
       })
@@ -237,11 +239,16 @@ export default function Dashboard() {
       });
 
     return () => controller.abort();
-  }, [t, sharedReportId]);
+  }, [t]);
 
   useEffect(() => {
     if (!sharedReportId) {
       sharedReportTargetRef.current = null;
+      return;
+    }
+
+    // Marker/feed click already selected this report — URL sync only, no refetch.
+    if (selectedReport?.id === sharedReportId) {
       return;
     }
 
@@ -250,6 +257,26 @@ export default function Dashboard() {
       .then((detail) => {
         centeredCrisisRef.current = null;
         sharedReportTargetRef.current = detail;
+
+        if (detail.crisis_id === selectedCrisisId) {
+          const pin =
+            allReports.find((report) => report.id === detail.id) ??
+            reportDetailToPin(detail);
+          if (pin) {
+            setSelectedReport(pin);
+            setViewport((current) => ({
+              ...current,
+              lat: pin.latitude,
+              lng: pin.longitude,
+            }));
+            if (isMobile) {
+              setMobilePanel("map");
+            }
+          }
+          sharedReportTargetRef.current = null;
+          return;
+        }
+
         setSelectedCrisisId(detail.crisis_id);
       })
       .catch((err) => {
@@ -263,7 +290,16 @@ export default function Dashboard() {
       });
 
     return () => controller.abort();
-  }, [sharedReportId, navigate, t]);
+  }, [
+    sharedReportId,
+    selectedReport?.id,
+    selectedCrisisId,
+    allReports,
+    isMobile,
+    navigate,
+    setMobilePanel,
+    t,
+  ]);
 
   useEffect(() => {
     if (!selectedCrisisId) return;

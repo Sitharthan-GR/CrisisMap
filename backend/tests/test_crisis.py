@@ -42,8 +42,10 @@ async def test_list_crises(client: AsyncClient, mock_supabase) -> None:
 
 @pytest.mark.asyncio
 async def test_reporting_options(client: AsyncClient, mock_supabase) -> None:
-    mock_supabase.select.return_value = ([CRISIS_ROW], 1)
-    mock_supabase.select_one.return_value = UNLISTED_CRISIS_ROW
+    mock_supabase.rpc.return_value = {
+        "crises": [CRISIS_ROW],
+        "unlisted_crisis_id": "unlisted-crisis-id",
+    }
 
     response = await client.get(
         "/api/v1/crises/reporting-options",
@@ -56,6 +58,7 @@ async def test_reporting_options(client: AsyncClient, mock_supabase) -> None:
     assert len(body["data"]["crises"]) == 1
     assert body["data"]["unlisted_crisis_id"] == "unlisted-crisis-id"
     assert body["data"]["nearest_crisis_id"] == "crisis-uuid-1"
+    mock_supabase.rpc.assert_called_with("get_reporting_options_data", {})
 
 
 @pytest.mark.asyncio

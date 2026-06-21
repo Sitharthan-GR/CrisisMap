@@ -1,3 +1,4 @@
+import asyncio
 from collections import Counter, defaultdict
 from typing import Any
 
@@ -6,7 +7,6 @@ import structlog
 from app.core.exceptions import ValidationError
 from app.schemas.map import ClusterQuery, GeoJsonFeature, MapFeatureCollection, MapQuery
 from app.services.crisis import get_crisis
-from app.services.photos import latest_photo_thumbnail_for_location
 from app.services.supabase import SupabaseClient
 
 logger = structlog.get_logger(__name__)
@@ -51,75 +51,91 @@ def _geohash_center(geohash: str) -> tuple[float, float]:
     return (sum(lng_interval) / 2, sum(lat_interval) / 2)
 
 
-async def _fetch_map_reports(
+async def _fetch_map_pins_rpc(
     supabase: SupabaseClient,
     crisis_id: str,
     query: MapQuery,
 ) -> list[dict[str, Any]]:
-    filters: list[tuple[str, str]] = [
-        ("crisis_id", f"eq.{crisis_id}"),
-        ("is_latest_version", "eq.true"),
-    ]
-    if query.damage_level:
-        filters.append(("damage_level", f"eq.{query.damage_level}"))
-    if query.infra_type:
-        filters.append(("infra_type", f"eq.{query.infra_type}"))
-    if query.status != "all":
-        filters.append(("status", f"eq.{query.status}"))
+    params: dict[str, Any] = {
+        "p_crisis_id": crisis_id,
+        "p_status": query.status,
+        "p_damage_level": query.damage_level,
+        "p_infra_type": query.infra_type,
+        "p_min_lng": None,
+        "p_min_lat": None,
+        "p_max_lng": None,
+        "p_max_lat": None,
+    }
+    if query.bbox:
+        min_lng, min_lat, max_lng, max_lat = parse_bbox(query.bbox)
+        params.update(
+            {
+                "p_min_lng": min_lng,
+                "p_min_lat": min_lat,
+                "p_max_lng": max_lng,
+                "p_max_lat": max_lat,
+            }
+        )
 
-    rows, _ = await supabase.select(
-        "report",
-        columns=(
-            "id,location_id,damage_level,infra_type,status,"
-            "location(id,latitude,longitude,geohash,report_count,admin_level_2)"
-        ),
-        filters=filters,
-        limit=20_000,
-    )
+    result = await supabase.rpc("get_crisis_map_pins", params)
+    return result or []
 
-    if not query.bbox:
-        return rows
 
-    min_lng, min_lat, max_lng, max_lat = parse_bbox(query.bbox)
-    filtered: list[dict[str, Any]] = []
-    for row in rows:
-        location = row.get("location") or {}
-        lat = location.get("latitude")
-        lng = location.get("longitude")
-        if lat is None or lng is None:
-            continue
-        if min_lng <= lng <= max_lng and min_lat <= lat <= max_lat:
-            filtered.append(row)
-    return filtered
+async def _sign_thumbnail_urls(
+    supabase: SupabaseClient,
+    storage_paths: set[str],
+) -> dict[str, str | None]:
+    if not storage_paths:
+        return {}
+
+    async def sign(path: str) -> tuple[str, str | None]:
+        try:
+            url = await supabase.create_signed_url(
+                path,
+                transform={"width": 300, "height": 300},
+            )
+            return path, url
+        except Exception:
+            logger.warning("map_thumbnail_sign_failed", storage_path=path)
+            return path, None
+
+    signed = await asyncio.gather(*(sign(path) for path in storage_paths))
+    return dict(signed)
 
 
 async def get_crisis_map(
     supabase: SupabaseClient, crisis_id: str, query: MapQuery
 ) -> MapFeatureCollection:
     await get_crisis(supabase, crisis_id)
-    rows = await _fetch_map_reports(supabase, crisis_id, query)
-    features: list[GeoJsonFeature] = []
+    rows = await _fetch_map_pins_rpc(supabase, crisis_id, query)
 
+    storage_paths = {
+        path
+        for row in rows
+        if (path := row.get("latest_photo_storage_url"))
+    }
+    signed_urls = await _sign_thumbnail_urls(supabase, storage_paths)
+
+    features: list[GeoJsonFeature] = []
     for row in rows:
-        location = row.get("location") or {}
-        lat = location.get("latitude")
-        lng = location.get("longitude")
+        lat = row.get("latitude")
+        lng = row.get("longitude")
         if lat is None or lng is None:
             continue
-        thumbnail = await latest_photo_thumbnail_for_location(
-            supabase, location.get("id") or row["location_id"]
-        )
+        storage_path = row.get("latest_photo_storage_url")
         features.append(
             GeoJsonFeature(
                 geometry={"type": "Point", "coordinates": [lng, lat]},
                 properties={
-                    "location_id": location.get("id") or row["location_id"],
-                    "report_id": row["id"],
+                    "location_id": row["location_id"],
+                    "report_id": row["report_id"],
                     "damage_level": row["damage_level"],
                     "infra_type": row["infra_type"],
-                    "report_count": location.get("report_count", 0),
-                    "admin_level_2": location.get("admin_level_2"),
-                    "latest_photo_thumbnail": thumbnail,
+                    "report_count": row.get("report_count", 0),
+                    "admin_level_2": row.get("admin_level_2"),
+                    "latest_photo_thumbnail": signed_urls.get(storage_path)
+                    if storage_path
+                    else None,
                 },
             )
         )
@@ -131,14 +147,12 @@ async def get_crisis_map_clusters(
     supabase: SupabaseClient, crisis_id: str, query: ClusterQuery
 ) -> MapFeatureCollection:
     await get_crisis(supabase, crisis_id)
-    min_lng, min_lat, max_lng, max_lat = parse_bbox(query.bbox)
     map_query = MapQuery(bbox=query.bbox, status="all")
-    rows = await _fetch_map_reports(supabase, crisis_id, map_query)
+    rows = await _fetch_map_pins_rpc(supabase, crisis_id, map_query)
 
     clusters: dict[str, list[str]] = defaultdict(list)
     for row in rows:
-        location = row.get("location") or {}
-        geohash = location.get("geohash")
+        geohash = row.get("geohash")
         if not geohash:
             continue
         prefix = geohash[: query.precision]

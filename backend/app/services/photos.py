@@ -14,7 +14,7 @@ from app.schemas.photo import (
     PhotoInitiateResponse,
     PhotoOut,
 )
-from app.services.reports import get_report
+from app.services.reports import _load_report_payload
 from app.services.supabase import SupabaseClient
 
 logger = structlog.get_logger(__name__)
@@ -144,14 +144,15 @@ async def confirm_photo_upload(
     return await _photo_out(supabase, row)
 
 
-async def list_report_photos(supabase: SupabaseClient, report_id: str) -> list[PhotoOut]:
-    await get_report(supabase, report_id)
-    rows, _ = await supabase.select(
-        "photo",
-        filters=[("report_id", f"eq.{report_id}")],
-        order="uploaded_at.asc",
-    )
+async def photos_from_rows(
+    supabase: SupabaseClient, rows: list[dict[str, Any]]
+) -> list[PhotoOut]:
     return [await _photo_out(supabase, row) for row in rows]
+
+
+async def list_report_photos(supabase: SupabaseClient, report_id: str) -> list[PhotoOut]:
+    payload = await _load_report_payload(supabase, report_id)
+    return await photos_from_rows(supabase, payload.get("photos") or [])
 
 
 async def get_photo(supabase: SupabaseClient, photo_id: str) -> dict[str, Any]:
