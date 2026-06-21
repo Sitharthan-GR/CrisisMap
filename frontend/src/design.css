@@ -928,6 +928,25 @@ select.field {
   color: var(--accent);
 }
 
+button.map-chip {
+  margin: 0;
+  font: inherit;
+  text-align: inherit;
+  appearance: none;
+  -webkit-appearance: none;
+}
+
+button.map-chip.map-chip-btn {
+  pointer-events: auto;
+  cursor: pointer;
+  transition: background 0.15s ease, border-color 0.15s ease;
+}
+
+button.map-chip.map-chip-btn:active {
+  background: var(--surface-raised, var(--surface));
+  border-color: var(--accent);
+}
+
 .dashboard-error {
   position: absolute;
   left: 18px;
@@ -1303,6 +1322,9 @@ body.pin-drop-focus .map-chip {
     bottom: 12px;
     left: 12px;
     max-width: calc(100% - 24px);
+  }
+
+  .mobile-app-content .map-chip:not(.map-chip-btn) {
     pointer-events: none;
   }
 

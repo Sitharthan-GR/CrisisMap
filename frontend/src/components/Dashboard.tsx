@@ -631,12 +631,23 @@ export default function Dashboard() {
             </div>
           )}
 
-          {!pinDropMode && !awaitingPinReport && (
-            <div className="map-chip">
-              <Crosshair strokeWidth={2} />
-              <span>{mapChipLabel}</span>
-            </div>
-          )}
+          {!pinDropMode && !awaitingPinReport &&
+            (isMobile ? (
+              <button
+                type="button"
+                className="map-chip map-chip-btn"
+                onClick={() => setMobilePanel("feed")}
+                aria-label={t("panels.expandFeed")}
+              >
+                <Crosshair strokeWidth={2} />
+                <span>{mapChipLabel}</span>
+              </button>
+            ) : (
+              <div className="map-chip">
+                <Crosshair strokeWidth={2} />
+                <span>{mapChipLabel}</span>
+              </div>
+            ))}
         </div>
       </main>
 
