@@ -64,6 +64,7 @@ import {
 import type { ReportLocationPrefill } from "../types/location";
 import type { Crisis, DamageLevel, InfraType, LocationMethod, Report, ReportCreateInput } from "../types/report";
 import LanguageSwitcher from "./LanguageSwitcher";
+import CustomReportWizard from "./CustomReportWizard";
 import ReportLocationPicker from "./ReportLocationPicker";
 
 type WizardStep = "damage" | "infra" | "crisis" | "debris" | "location" | "photo" | "done";
@@ -152,22 +153,16 @@ function OptionButton({ option, selected, onSelect, grid }: OptionButtonProps) {
     <button
       type="button"
       onClick={onSelect}
-      className={`flex w-full cursor-pointer items-center gap-2.5 rounded-lg border px-3.5 py-3 text-start transition ${
-        grid ? "flex-col justify-center gap-1.5 text-center" : ""
-      } ${
-        selected
-          ? "border-2 border-accent bg-accent/10"
-          : "border-surface-border bg-surface hover:border-slate-500 hover:bg-surface-raised"
-      }`}
+      className={`report-wizard-option ${grid ? "grid" : ""} ${selected ? "selected" : ""}`}
     >
       <Icon
-        className={`h-5 w-5 shrink-0 ${selected ? "text-accent" : "text-slate-400"}`}
+        className={`h-5 w-5 shrink-0 ${selected ? "text-accent" : "text-ink-faint"}`}
         aria-hidden
       />
       <div className={grid ? "" : "min-w-0 flex-1"}>
-        <p className="text-sm text-white">{option.title}</p>
+        <p className="text-sm text-ink">{option.title}</p>
         {option.subtitle && (
-          <p className="text-xs text-slate-400">{option.subtitle}</p>
+          <p className="text-xs text-ink-dim">{option.subtitle}</p>
         )}
       </div>
     </button>
@@ -747,7 +742,7 @@ export default function CrisisReportForm() {
   if (loadingCrises) {
     return (
       <WizardShell crisisName={t("wizard.loading")}>
-        <div className="flex min-h-[280px] items-center justify-center text-sm text-slate-400">
+        <div className="flex min-h-[280px] items-center justify-center text-sm text-ink-dim">
           {t("wizard.loadingCrises")}
         </div>
       </WizardShell>
@@ -758,8 +753,39 @@ export default function CrisisReportForm() {
     ? t("wizard.crisisEventOther")
     : selectedCrisis?.name ?? t("wizard.reportDamage");
 
+  const useCustomForm =
+    !isOtherCrisis && Boolean(selectedCrisis?.form_template_id);
+
   return (
     <WizardShell crisisName={headerCrisisName}>
+      {useCustomForm && selectedCrisis ? (
+        <>
+          <div className="flex justify-end px-4 pt-2">
+            <LanguageSwitcher compact />
+          </div>
+          {unlistedCrisisId && (
+            <div className="mx-4 mt-2">
+              <label className="mb-1 block text-xs text-ink-dim">
+                {t("wizard.crisisEventLabel")}
+              </label>
+              <select
+                value={selectedEventId || OTHER_CRISIS_VALUE}
+                onChange={(e) => handleEventSelect(e.target.value)}
+                className="report-wizard-field"
+              >
+                {crises.map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+                <option value={OTHER_CRISIS_VALUE}>{t("wizard.crisisEventOther")}</option>
+              </select>
+            </div>
+          )}
+          <CustomReportWizard crisis={selectedCrisis} />
+        </>
+      ) : (
+        <>
       {step !== "done" && (
         <div className="flex gap-1 px-4 pt-3.5">
           {WIZARD_STEPS.map((s, i) => (
@@ -767,10 +793,10 @@ export default function CrisisReportForm() {
               key={s}
               className={`h-0.5 flex-1 rounded-sm transition-colors ${
                 i < stepIndex
-                  ? "bg-emerald-500"
+                  ? "report-wizard-progress-done"
                   : i === stepIndex
-                    ? "bg-accent"
-                    : "bg-surface-border"
+                    ? "report-wizard-progress-current"
+                    : "report-wizard-progress-pending"
               }`}
             />
           ))}
@@ -784,7 +810,7 @@ export default function CrisisReportForm() {
       {step !== "done" && unlistedCrisisId && (
         <div className="mx-4 mt-2">
           {showCachedCrisisHint && (
-            <p className="mb-2 rounded-lg border border-amber-500/30 bg-amber-950/40 px-3 py-2 text-[11px] text-amber-100">
+            <p className="report-wizard-offline-hint">
               {cachedCrisesLabel
                 ? t("wizard.offlineCrisisListHintWithDate", {
                     date: cachedCrisesLabel,
@@ -792,13 +818,13 @@ export default function CrisisReportForm() {
                 : t("wizard.offlineCrisisListHint")}
             </p>
           )}
-          <label className="mb-1 block text-xs text-slate-400">
+          <label className="mb-1 block text-xs text-ink-dim">
             {t("wizard.crisisEventLabel")}
           </label>
           <select
             value={selectedEventId || OTHER_CRISIS_VALUE}
             onChange={(e) => handleEventSelect(e.target.value)}
-            className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none focus:border-accent"
+            className="report-wizard-field"
           >
             {crises.map((crisis) => (
               <option key={crisis.id} value={crisis.id}>
@@ -811,11 +837,11 @@ export default function CrisisReportForm() {
             <option value={OTHER_CRISIS_VALUE}>{t("wizard.crisisEventOther")}</option>
           </select>
           {isOtherCrisis ? (
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-[11px] text-ink-faint">
               {t("wizard.crisisEventOtherHint")}
             </p>
           ) : nearestCrisisId === selectedEventId ? (
-            <p className="mt-1 text-[11px] text-slate-500">
+            <p className="mt-1 text-[11px] text-ink-faint">
               {!isOnline
                 ? t("wizard.offlineNearestCrisisHint")
                 : t("wizard.nearestCrisisHint")}
@@ -825,7 +851,7 @@ export default function CrisisReportForm() {
       )}
 
       {error && step !== "done" && (
-        <div className="mx-4 mt-3 rounded-lg border border-red-500/40 bg-red-950/50 px-3 py-2 text-xs text-red-200">
+        <div className="mx-4 mt-3 report-wizard-error">
           {error}
         </div>
       )}
@@ -833,31 +859,24 @@ export default function CrisisReportForm() {
       <div className="min-h-[280px] px-4 py-4">
         {step === "done" && (submittedReport || submittedOffline) ? (
           <div className="py-5 text-center">
-            <CircleCheck className="mx-auto h-12 w-12 text-emerald-400" />
-            <p className="mt-2.5 text-lg font-medium text-white">
+            <CircleCheck className="mx-auto h-12 w-12 text-success" />
+            <p className="mt-2.5 text-lg font-medium text-ink">
               {submittedOffline
                 ? t("wizard.doneTitleOffline")
                 : t("wizard.doneTitle")}
             </p>
-            <p className="mt-1 text-sm text-slate-400">
+            <p className="mt-1 text-sm text-ink-dim">
               {submittedOffline
                 ? t("wizard.doneSubtitleOffline")
                 : isOtherCrisis
                   ? t("wizard.doneSubtitleUnlisted")
                   : t("wizard.doneSubtitle")}
             </p>
-            <div className="relative mx-auto mt-4 h-[150px] max-w-[280px] overflow-hidden rounded-lg border border-surface-border bg-[#1a2a3a]">
-              <div
-                className="absolute inset-0 opacity-50"
-                style={{
-                  backgroundImage:
-                    "linear-gradient(#2a3544 0.5px, transparent 0.5px), linear-gradient(90deg, #2a3544 0.5px, transparent 0.5px)",
-                  backgroundSize: "24px 24px",
-                }}
-              />
-              <MapPin className="absolute left-1/2 top-[45%] h-8 w-8 -translate-x-1/2 -translate-y-full text-red-500" />
+            <div className="report-wizard-map-preview">
+              <div className="report-wizard-map-grid" />
+              <MapPin className="absolute left-1/2 top-[45%] h-8 w-8 -translate-x-1/2 -translate-y-full text-danger" />
             </div>
-            <p className="mt-2.5 text-xs text-slate-400">
+            <p className="mt-2.5 text-xs text-ink-dim">
               {t("wizard.doneSummary", {
                 damage: damageLevelLabel(damage ?? undefined),
                 infra: infraTypeLabel(infra ?? undefined, infraOtherDetail),
@@ -866,15 +885,15 @@ export default function CrisisReportForm() {
                 t("wizard.donePhotos", { count: uploadedPhotoCount })}
             </p>
             {submittedReport && (
-              <p className="mt-1 font-mono text-[11px] text-slate-500">
+              <p className="mt-1 font-mono text-[11px] text-ink-faint">
                 {submittedReport.id}
               </p>
             )}
           </div>
         ) : (
           <>
-            <p className="mb-0.5 text-[11px] text-slate-500">{stepLabel(step)}</p>
-            <p className="mb-3.5 text-[17px] font-medium leading-snug text-white">
+            <p className="mb-0.5 text-[11px] text-ink-faint">{stepLabel(step)}</p>
+            <p className="mb-3.5 text-[17px] font-medium leading-snug text-ink">
               {stepQuestion(step)}
             </p>
 
@@ -911,7 +930,7 @@ export default function CrisisReportForm() {
                 </div>
                 {infra === "other" && (
                   <label className="block">
-                    <span className="mb-1.5 block text-xs text-slate-400">
+                    <span className="mb-1.5 block text-xs text-ink-dim">
                       {t("wizard.infraOtherLabel")}
                     </span>
                     <input
@@ -921,7 +940,7 @@ export default function CrisisReportForm() {
                       placeholder={t("wizard.infraOtherPlaceholder")}
                       maxLength={100}
                       autoFocus
-                      className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
+                      className="report-wizard-field"
                     />
                   </label>
                 )}
@@ -987,7 +1006,7 @@ export default function CrisisReportForm() {
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
                   disabled={submitting || pendingPhotos.length >= MAX_PHOTOS_PER_REPORT}
-                  className="w-full rounded-lg border border-dashed border-surface-border px-4 py-6 text-center text-[13px] text-slate-400 transition hover:border-accent hover:text-slate-300 disabled:opacity-50"
+                  className="w-full rounded-xl border border-dashed border-surface-border px-4 py-6 text-center text-[13px] text-ink-dim transition hover:border-accent hover:text-ink disabled:opacity-50"
                 >
                   <Camera className="mx-auto mb-1.5 h-7 w-7" />
                   {t("wizard.tapPhoto")}
@@ -1014,7 +1033,7 @@ export default function CrisisReportForm() {
                   </ul>
                 )}
 
-                <p className="mb-1 mt-3 text-xs text-slate-400">
+                <p className="mb-1 mt-3 text-xs text-ink-dim">
                   {t("wizard.reporterNameOptional")}
                 </p>
                 <input
@@ -1024,13 +1043,13 @@ export default function CrisisReportForm() {
                   placeholder={t("wizard.reporterNamePlaceholder")}
                   autoComplete="name"
                   maxLength={100}
-                  className="w-full rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
+                  className="report-wizard-field"
                 />
-                <p className="mt-1 text-[11px] text-slate-500">
+                <p className="mt-1 text-[11px] text-ink-faint">
                   {t("wizard.reporterNameHint")}
                 </p>
 
-                <p className="mb-1 mt-3 text-xs text-slate-400">
+                <p className="mb-1 mt-3 text-xs text-ink-dim">
                   {t("wizard.descriptionOptional")}
                 </p>
                 <textarea
@@ -1038,14 +1057,14 @@ export default function CrisisReportForm() {
                   onChange={(e) => setDescription(e.target.value)}
                   placeholder={t("wizard.descriptionPlaceholder")}
                   rows={3}
-                  className="w-full resize-y rounded-lg border border-surface-border bg-surface px-3 py-2 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent"
+                  className="report-wizard-field resize-y"
                 />
 
                 <button
                   type="button"
                   onClick={() => void submitReport()}
                   disabled={submitting}
-                  className="mt-2 w-full text-center text-xs text-slate-500 hover:text-slate-300 disabled:opacity-50"
+                  className="mt-2 w-full text-center text-xs text-ink-faint hover:text-ink-dim disabled:opacity-50"
                 >
                   {submitting
                     ? uploadProgress ?? t("wizard.submitting")
@@ -1058,13 +1077,13 @@ export default function CrisisReportForm() {
       </div>
 
       {step !== "done" ? (
-        <div className="flex gap-2 border-t border-surface-border px-4 py-3.5">
+        <div className="report-wizard-footer">
           {stepIndex > 0 && (
             <button
               type="button"
               onClick={goBack}
               disabled={submitting}
-              className="flex w-12 shrink-0 items-center justify-center rounded-lg border border-surface-border bg-transparent text-slate-200 transition hover:bg-surface disabled:opacity-40"
+              className="report-wizard-back-btn"
             >
               <ArrowLeft className="h-4 w-4 rtl-flip" />
             </button>
@@ -1085,7 +1104,7 @@ export default function CrisisReportForm() {
               if (step === "photo") void submitReport();
               else goNext();
             }}
-            className="flex-1 rounded-lg bg-accent py-2.5 text-sm font-medium text-white transition hover:bg-accent-muted disabled:cursor-not-allowed disabled:opacity-40"
+            className="report-wizard-continue"
           >
             {submitting
               ? uploadProgress ?? t("wizard.submitting")
@@ -1095,15 +1114,17 @@ export default function CrisisReportForm() {
           </button>
         </div>
       ) : (
-        <div className="border-t border-surface-border px-4 py-3.5">
+        <div className="report-wizard-footer">
           <button
             type="button"
             onClick={resetWizard}
-            className="w-full rounded-lg bg-accent py-2.5 text-sm font-medium text-white transition hover:bg-accent-muted"
+            className="report-wizard-continue w-full"
           >
             {t("wizard.submitAnother")}
           </button>
         </div>
+      )}
+        </>
       )}
     </WizardShell>
   );
@@ -1119,22 +1140,17 @@ function WizardShell({
   const { t } = useTranslation();
 
   return (
-    <div className="flex h-full flex-col bg-surface">
-      <header className="flex items-center gap-3 border-b border-surface-border bg-surface-raised/80 px-4 py-3">
-        <Link
-          to="/"
-          className="inline-flex items-center gap-1.5 rounded-lg border border-surface-border px-2.5 py-1.5 text-xs text-slate-300 hover:text-white"
-        >
+    <div className="report-wizard-shell">
+      <header className="report-wizard-header">
+        <Link to="/" className="report-wizard-back">
           <ArrowLeft className="h-3.5 w-3.5 rtl-flip" />
           {t("nav.dashboard")}
         </Link>
-        <p className="truncate text-sm text-slate-400">{crisisName}</p>
+        <p className="report-wizard-crisis-name flex-1">{crisisName}</p>
       </header>
 
       <div className="flex flex-1 items-start justify-center overflow-y-auto p-4">
-        <div className="w-full max-w-[380px] overflow-hidden rounded-xl border border-surface-border bg-surface-raised shadow-panel">
-          {children}
-        </div>
+        <div className="report-wizard-card">{children}</div>
       </div>
     </div>
   );

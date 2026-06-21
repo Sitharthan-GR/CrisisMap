@@ -17,8 +17,10 @@ from app.schemas.admin import (
 )
 from app.schemas.common import success
 from app.schemas.crisis import CrisisCreate, CrisisUpdate
+from app.schemas.form_template import FormTemplateCreate, FormTemplateUpdate
 from app.services import crisis as crisis_service
 from app.services import export as export_service
+from app.services import form_template as form_template_service
 from app.services import reports as report_service
 
 logger = structlog.get_logger(__name__)
@@ -82,6 +84,43 @@ async def admin_update_crisis(
     return success(data.model_dump(mode="json"))
 
 
+@router.get("/form-templates")
+async def admin_list_form_templates(_admin: AdminDep, supabase: SupabaseDep) -> dict:
+    templates = await form_template_service.list_form_templates(supabase)
+    return success([item.model_dump(mode="json") for item in templates])
+
+
+@router.post("/form-templates", status_code=status.HTTP_201_CREATED)
+async def admin_create_form_template(
+    payload: FormTemplateCreate,
+    _admin: AdminDep,
+    supabase: SupabaseDep,
+) -> dict:
+    data = await form_template_service.create_form_template(supabase, payload)
+    return success(data.model_dump(mode="json"))
+
+
+@router.patch("/form-templates/{template_id}")
+async def admin_update_form_template(
+    template_id: str,
+    payload: FormTemplateUpdate,
+    _admin: AdminDep,
+    supabase: SupabaseDep,
+) -> dict:
+    data = await form_template_service.update_form_template(supabase, template_id, payload)
+    return success(data.model_dump(mode="json"))
+
+
+@router.delete("/form-templates/{template_id}")
+async def admin_delete_form_template(
+    template_id: str,
+    _admin: AdminDep,
+    supabase: SupabaseDep,
+) -> dict:
+    await form_template_service.delete_form_template(supabase, template_id)
+    return success({"deleted": True})
+
+
 @router.get("/reports/unlisted")
 async def admin_unlisted_reports(_admin: AdminDep, supabase: SupabaseDep) -> dict:
     reports = await report_service.list_unlisted_reports(supabase)
@@ -119,6 +158,7 @@ async def admin_create_crisis_from_report(
         onset_at=payload.onset_at,
         epicenter_lat=payload.epicenter_lat,
         epicenter_lng=payload.epicenter_lng,
+        form_template_id=payload.form_template_id,
     )
     body = AdminAssignReportResponse(report=report, crisis=crisis)
     return success(body.model_dump(mode="json"))

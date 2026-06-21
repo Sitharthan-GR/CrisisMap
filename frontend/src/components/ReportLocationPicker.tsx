@@ -153,9 +153,9 @@ export default function ReportLocationPicker({
     <div className="overflow-hidden rounded-xl border border-surface-border bg-surface-raised/40">
       {(title || subtitle) && (
         <div className="border-b border-surface-border px-4 py-3">
-          {title && <p className="text-sm font-semibold text-white">{title}</p>}
+          {title && <p className="text-sm font-semibold text-ink">{title}</p>}
           {subtitle && (
-            <p className="mt-0.5 text-xs text-slate-500">{subtitle}</p>
+            <p className="mt-0.5 text-xs text-ink-faint">{subtitle}</p>
           )}
         </div>
       )}
@@ -168,7 +168,7 @@ export default function ReportLocationPicker({
         )}
 
         <div className="relative">
-          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-500" />
+          <Search className="pointer-events-none absolute start-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-faint" />
           <input
             ref={searchRef}
             type="search"
@@ -176,14 +176,14 @@ export default function ReportLocationPicker({
             onChange={(e) => onAddressQueryChange(e.target.value)}
             onFocus={() => setMode("search")}
             placeholder={t("wizard.addressPlaceholder")}
-            className="w-full rounded-lg border border-accent/40 bg-surface py-2.5 ps-10 pe-3 text-sm text-white outline-none placeholder:text-slate-600 focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
+            className="report-wizard-field py-2.5 ps-10 pe-3 border-accent-line focus:border-accent disabled:cursor-not-allowed disabled:opacity-60"
             autoComplete="off"
             disabled={isOffline}
           />
         </div>
 
         {isOffline && mode === "search" && (
-          <p className="mt-1 text-[11px] text-slate-500">
+          <p className="mt-1 text-[11px] text-ink-faint">
             {t("wizard.offlineSearchHint")}
           </p>
         )}
@@ -191,7 +191,7 @@ export default function ReportLocationPicker({
         {showSearchPanel && (
           <div className="relative z-10 mt-1">
             {searchingPlaces && (
-              <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-slate-500">
+              <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-ink-faint">
                 {t("wizard.searchingPlaces")}
               </p>
             )}
@@ -199,7 +199,7 @@ export default function ReportLocationPicker({
             {!searchingPlaces &&
               addressQuery.trim().length >= 2 &&
               placeResults.length === 0 && (
-                <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-slate-500">
+                <p className="rounded-lg border border-surface-border bg-surface px-3 py-2 text-xs text-ink-faint">
                   {t("wizard.noPlacesFound")}
                 </p>
               )}
@@ -211,7 +211,7 @@ export default function ReportLocationPicker({
                     <button
                       type="button"
                       onClick={() => handleSelectPlace(place)}
-                      className="w-full px-3 py-2.5 text-start text-sm text-slate-200 transition hover:bg-surface-raised"
+                      className="w-full px-3 py-2.5 text-start text-sm text-ink-dim transition hover:bg-surface-raised"
                       title={place.display_name}
                     >
                       {shortAddress(place.display_name)}
@@ -252,7 +252,7 @@ export default function ReportLocationPicker({
           </MapContainer>
 
           {locationStatus === "detecting" && (
-            <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-surface/70 text-xs text-slate-300">
+            <div className="pointer-events-none absolute inset-0 z-[500] flex items-center justify-center bg-surface/70 text-xs text-ink-dim">
               {t("wizard.detecting")}
             </div>
           )}
@@ -261,7 +261,7 @@ export default function ReportLocationPicker({
             type="button"
             onClick={handleGps}
             disabled={locationStatus === "detecting"}
-            className="absolute bottom-3 end-3 z-[1000] inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-1.5 text-xs font-medium text-white shadow-lg backdrop-blur transition hover:border-accent disabled:opacity-50"
+            className="absolute bottom-3 end-3 z-[1000] inline-flex items-center gap-1.5 rounded-lg border border-surface-border bg-surface-raised px-3 py-1.5 text-xs font-medium text-ink shadow-panel backdrop-blur transition hover:border-accent disabled:opacity-50"
           >
             <Crosshair className="h-3.5 w-3.5" />
             {t("locationPicker.useMyGps")}
@@ -271,13 +271,13 @@ export default function ReportLocationPicker({
         <div className="mt-3 rounded-lg border border-surface-border bg-surface px-3 py-2.5">
           <div className="flex items-start justify-between gap-2">
             <div className="flex min-w-0 items-start gap-2">
-              <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-slate-500" />
+              <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-white">
+                <p className="truncate text-sm font-medium text-ink">
                   {hasCoords ? locationTitle : t("wizard.locationUnknown")}
                 </p>
                 {hasCoords && (
-                  <p className="mt-0.5 font-mono text-xs text-slate-400">
+                  <p className="mt-0.5 font-mono text-xs text-ink-dim">
                     {Number(latitude).toFixed(4)}, {Number(longitude).toFixed(4)}
                   </p>
                 )}
@@ -288,7 +288,7 @@ export default function ReportLocationPicker({
                 )}
                 {placeLabel && placeLabel !== shortLabel && hasCoords && (
                   <p
-                    className="mt-1 line-clamp-2 text-[11px] text-slate-600"
+                    className="mt-1 line-clamp-2 text-[11px] text-ink-faint"
                     title={placeLabel}
                   >
                     {placeLabel}
@@ -326,7 +326,7 @@ export default function ReportLocationPicker({
                 className={`flex flex-col items-center gap-1 rounded-lg border px-2 py-2.5 text-xs transition disabled:cursor-not-allowed disabled:opacity-40 ${
                   selected
                     ? "border-accent bg-accent/10 text-accent"
-                    : "border-surface-border bg-surface text-slate-400 hover:border-slate-500 hover:text-slate-200"
+                    : "border-surface-border bg-surface text-ink-faint hover:border-strong hover:text-ink-dim"
                 }`}
               >
                 <Icon className="h-4 w-4" />

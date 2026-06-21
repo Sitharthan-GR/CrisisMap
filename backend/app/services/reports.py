@@ -30,7 +30,7 @@ REPORT_SELECT = (
     "id,crisis_id,location_id,damage_level,infra_type,infra_subtype,infra_name,"
     "debris_present,nature_of_crisis,description_raw,description_translated,reporter_name,"
     "source_language,is_latest_version,version_number,submission_channel,status,"
-    "collected_at,submitted_at"
+    "collected_at,submitted_at,form_responses"
 )
 
 
@@ -105,6 +105,7 @@ def _report_out(row: dict[str, Any], location: dict[str, Any] | None = None) -> 
         collected_at=_parse_dt(row["collected_at"]),
         submitted_at=_parse_dt(row["submitted_at"]),
         location=location_model,
+        form_responses=row.get("form_responses"),
     )
 
 
@@ -200,6 +201,7 @@ async def create_report(
             "source_language": payload.source_language,
             "submission_channel": payload.submission_channel,
             "collected_at": payload.collected_at.isoformat(),
+            "form_responses": payload.form_responses,
         },
     )
 
@@ -466,6 +468,7 @@ async def create_crisis_from_unlisted_report(
     onset_at: datetime,
     epicenter_lat: float | None = None,
     epicenter_lng: float | None = None,
+    form_template_id: str | None = None,
 ) -> tuple[Any, ReportOut]:
     from app.services.crisis import create_crisis
     from app.schemas.crisis import CrisisCreate
@@ -487,6 +490,7 @@ async def create_crisis_from_unlisted_report(
             onset_at=onset_at,
             epicenter_lat=lat,
             epicenter_lng=lng,
+            form_template_id=form_template_id,
         ),
     )
     updated = await assign_unlisted_report(supabase, report_id, crisis.id)

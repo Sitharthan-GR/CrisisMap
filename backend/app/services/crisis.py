@@ -27,6 +27,7 @@ def _row_to_crisis(row: dict[str, Any]) -> CrisisOut:
         epicenter_lng=row.get("epicenter_lng"),
         status=row["status"],
         is_unlisted=bool(row.get("is_unlisted", False)),
+        form_template_id=row.get("form_template_id"),
         onset_at=_parse_dt(row["onset_at"]),
         created_at=_parse_dt(row["created_at"]),
     )
@@ -42,6 +43,7 @@ async def create_crisis(supabase: SupabaseClient, payload: CrisisCreate) -> Cris
             "epicenter_lat": payload.epicenter_lat,
             "epicenter_lng": payload.epicenter_lng,
             "onset_at": payload.onset_at.isoformat(),
+            "form_template_id": payload.form_template_id,
             "is_unlisted": False,
         },
     )
@@ -142,7 +144,7 @@ async def update_crisis(
     supabase: SupabaseClient, crisis_id: str, payload: CrisisUpdate
 ) -> CrisisOut:
     await get_crisis(supabase, crisis_id)
-    updates = payload.model_dump(exclude_none=True)
+    updates = payload.model_dump(exclude_unset=True)
     if not updates:
         raise ValidationError("At least one field is required")
     row = await supabase.update("crisis", [("id", f"eq.{crisis_id}")], updates)

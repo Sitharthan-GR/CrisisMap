@@ -1,5 +1,6 @@
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import AdminPage from "./components/AdminPage";
+import AdminFormManager from "./components/AdminFormManager";
 import CrisisReportForm from "./components/CrisisReportForm";
 import Dashboard from "./components/Dashboard";
 import MobileAppLayout from "./components/MobileAppLayout";
@@ -15,6 +16,7 @@ export default function App() {
           <Route path="/report" element={<CrisisReportForm />} />
         </Route>
         <Route path="/admin" element={<AdminPage />} />
+        <Route path="/admin/forms" element={<AdminFormManager />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>

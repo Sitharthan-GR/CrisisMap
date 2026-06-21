@@ -31,6 +31,7 @@ class AdminCreateCrisisFromReportRequest(BaseModel):
     onset_at: datetime
     epicenter_lat: float | None = None
     epicenter_lng: float | None = None
+    form_template_id: str | None = None
 
 
 class AdminAssignReportResponse(BaseModel):

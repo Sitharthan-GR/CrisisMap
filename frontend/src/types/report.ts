@@ -10,6 +10,7 @@ export interface Crisis {
   epicenter_lng?: number | null;
   status: CrisisStatus;
   is_unlisted?: boolean;
+  form_template_id?: string | null;
   onset_at: string;
   created_at: string;
 }
@@ -56,6 +57,7 @@ export interface ReportCreateInput {
   submission_channel: "app" | "whatsapp" | "web" | "sms";
   collected_at: string;
   location: ReportLocationInput;
+  form_responses?: Record<string, unknown> | null;
 }
 
 export interface ReportLocation {
@@ -89,6 +91,7 @@ export interface Report {
   collected_at: string;
   submitted_at: string;
   location?: ReportLocation;
+  form_responses?: Record<string, unknown> | null;
 }
 
 export interface ApiEnvelope<T> {

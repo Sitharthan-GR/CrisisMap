@@ -3,6 +3,7 @@ import {
   CheckCircle2,
   Clock,
   Download,
+  FileText,
   Lock,
   LogOut,
   MapPin,
@@ -210,6 +211,7 @@ export default function AdminPage() {
       if (editingCrisis) {
         await adminUpdateCrisis(token, editingCrisis.id, {
           name: values.name.trim(),
+          form_template_id: values.formTemplateId,
         });
       } else if (fromReport) {
         await adminCreateCrisisFromReport(token, fromReport.id, {
@@ -217,6 +219,7 @@ export default function AdminPage() {
           crisis_type: values.crisisType,
           crisis_subtype: values.crisisSubtype.trim(),
           onset_at: toIsoUtcFromLocal(values.onsetAt),
+          form_template_id: values.formTemplateId,
           ...coords,
         });
       } else {
@@ -225,6 +228,7 @@ export default function AdminPage() {
           crisis_type: values.crisisType,
           crisis_subtype: values.crisisSubtype.trim(),
           onset_at: toIsoUtcFromLocal(values.onsetAt),
+          form_template_id: values.formTemplateId,
           ...coords,
         });
       }
@@ -429,10 +433,16 @@ export default function AdminPage() {
             <h1>{t("admin.pageTitle")}</h1>
             <p>{t("admin.pageSubtitle")}</p>
           </div>
-          <button type="button" className="btn btn-primary" onClick={openCreatePanel}>
-            <Plus strokeWidth={2.2} />
-            {t("admin.newCrisis")}
-          </button>
+          <div className="admin-page-head-actions">
+            <Link to="/admin/forms" className="btn">
+              <FileText strokeWidth={2} />
+              {t("admin.manageForms")}
+            </Link>
+            <button type="button" className="btn btn-primary" onClick={openCreatePanel}>
+              <Plus strokeWidth={2.2} />
+              {t("admin.newCrisis")}
+            </button>
+          </div>
         </div>
 
         <div className="admin-kpis">

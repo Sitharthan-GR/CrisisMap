@@ -14,6 +14,11 @@ import type {
   ReportVersion,
   ReportingOptions,
 } from "../types/report";
+import type {
+  FormTemplate,
+  FormTemplateCreateInput,
+  FormTemplateUpdateInput,
+} from "../types/formTemplate";
 
 export interface BuildingBbox {
   south: number;
@@ -92,6 +97,7 @@ export interface AdminCrisisCreateInput {
   onset_at: string;
   epicenter_lat?: number;
   epicenter_lng?: number;
+  form_template_id?: string | null;
 }
 
 export async function adminFetchCrises(
@@ -122,7 +128,11 @@ export async function adminCreateCrisis(
 export async function adminUpdateCrisis(
   token: string,
   crisisId: string,
-  payload: { name?: string; status?: Crisis["status"] },
+  payload: {
+    name?: string;
+    status?: Crisis["status"];
+    form_template_id?: string | null;
+  },
   signal?: AbortSignal,
 ): Promise<Crisis> {
   const response = await fetch(`${API_BASE_URL}/admin/crises/${crisisId}`, {
@@ -201,6 +211,75 @@ export async function adminDeleteUnlistedReport(
   signal?: AbortSignal,
 ): Promise<void> {
   return adminDeleteReport(token, reportId, signal);
+}
+
+export async function adminFetchFormTemplates(
+  token: string,
+  signal?: AbortSignal,
+): Promise<FormTemplate[]> {
+  const response = await fetch(`${API_BASE_URL}/admin/form-templates`, {
+    headers: adminHeaders(token),
+    signal,
+  });
+  return parseApiResponse<FormTemplate[]>(response);
+}
+
+export async function adminCreateFormTemplate(
+  token: string,
+  payload: FormTemplateCreateInput,
+  signal?: AbortSignal,
+): Promise<FormTemplate> {
+  const response = await fetch(`${API_BASE_URL}/admin/form-templates`, {
+    method: "POST",
+    headers: adminHeaders(token),
+    body: JSON.stringify(payload),
+    signal,
+  });
+  return parseApiResponse<FormTemplate>(response);
+}
+
+export async function adminUpdateFormTemplate(
+  token: string,
+  templateId: string,
+  payload: FormTemplateUpdateInput,
+  signal?: AbortSignal,
+): Promise<FormTemplate> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/form-templates/${templateId}`,
+    {
+      method: "PATCH",
+      headers: adminHeaders(token),
+      body: JSON.stringify(payload),
+      signal,
+    },
+  );
+  return parseApiResponse<FormTemplate>(response);
+}
+
+export async function adminDeleteFormTemplate(
+  token: string,
+  templateId: string,
+  signal?: AbortSignal,
+): Promise<void> {
+  const response = await fetch(
+    `${API_BASE_URL}/admin/form-templates/${templateId}`,
+    {
+      method: "DELETE",
+      headers: adminHeaders(token),
+      signal,
+    },
+  );
+  await parseApiResponse<{ deleted: boolean }>(response);
+}
+
+export async function fetchFormTemplate(
+  templateId: string,
+  signal?: AbortSignal,
+): Promise<FormTemplate> {
+  const response = await fetch(`${API_BASE_URL}/form-templates/${templateId}`, {
+    signal,
+  });
+  return parseApiResponse<FormTemplate>(response);
 }
 
 export interface ExportQueryParams {

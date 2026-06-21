@@ -1,11 +1,15 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { Link } from "react-router-dom";
 import {
   fetchReverseGeocode,
   searchPlaces,
+  adminFetchFormTemplates,
   type PlaceSearchResult,
 } from "../api/client";
+import { getAdminToken } from "../lib/adminAuth";
 import { getCurrentLocation } from "../lib/geolocation";
+import type { FormTemplate } from "../types/formTemplate";
 import type { Crisis, CrisisType, ReportDetail } from "../types/report";
 import ReportLocationPicker from "./ReportLocationPicker";
 
@@ -34,6 +38,7 @@ export interface CrisisPanelValues {
   onsetAt: string;
   latitude: string;
   longitude: string;
+  formTemplateId: string | null;
 }
 
 interface AdminCrisisPanelProps {
@@ -69,6 +74,8 @@ export default function AdminCrisisPanel({
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
+  const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([]);
+  const [formTemplateId, setFormTemplateId] = useState<string | null>(null);
   const gpsAttemptedRef = useRef(false);
 
   const resetLocation = useCallback(() => {
@@ -103,12 +110,22 @@ export default function AdminCrisisPanel({
 
   useEffect(() => {
     if (!open) return;
+    const token = getAdminToken();
+    if (!token) return;
+    void adminFetchFormTemplates(token)
+      .then(setFormTemplates)
+      .catch(() => setFormTemplates([]));
+  }, [open]);
+
+  useEffect(() => {
+    if (!open) return;
 
     if (editingCrisis) {
       setName(editingCrisis.name);
       setCrisisType(editingCrisis.crisis_type);
       setCrisisSubtype(editingCrisis.crisis_subtype);
       setOnsetAt(toLocalDatetimeValue(editingCrisis.onset_at));
+      setFormTemplateId(editingCrisis.form_template_id ?? null);
       const lat = editingCrisis.epicenter_lat;
       const lng = editingCrisis.epicenter_lng;
       if (lat != null && lng != null && !(lat === 0 && lng === 0)) {
@@ -125,6 +142,7 @@ export default function AdminCrisisPanel({
     setCrisisType("natural_hazard");
     setCrisisSubtype(fromReport?.nature_of_crisis ?? "");
     setOnsetAt(defaultOnsetLocal());
+    setFormTemplateId(null);
 
     if (fromReport?.location?.latitude != null && fromReport.location.longitude != null) {
       setLatitude(String(fromReport.location.latitude));
@@ -218,6 +236,7 @@ export default function AdminCrisisPanel({
       onsetAt,
       latitude,
       longitude,
+      formTemplateId,
     });
   };
 
@@ -323,6 +342,31 @@ export default function AdminCrisisPanel({
               required
               disabled={Boolean(editingCrisis)}
             />
+          </div>
+
+          <div className="admin-fieldset">
+            <label className="label" htmlFor="admin-f-form">
+              {t("admin.fieldFormTemplate")}
+            </label>
+            <select
+              id="admin-f-form"
+              className="field"
+              value={formTemplateId ?? ""}
+              onChange={(e) =>
+                setFormTemplateId(e.target.value ? e.target.value : null)
+              }
+            >
+              <option value="">{t("admin.defaultFormTemplate")}</option>
+              {formTemplates.map((template) => (
+                <option key={template.id} value={template.id}>
+                  {template.name}
+                </option>
+              ))}
+            </select>
+            <p className="admin-field-hint">
+              {t("admin.formTemplateHint")}{" "}
+              <Link to="/admin/forms">{t("admin.manageForms")}</Link>
+            </p>
           </div>
 
           <div className="admin-fieldset">

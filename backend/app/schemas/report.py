@@ -1,5 +1,5 @@
 from datetime import datetime
-from typing import Literal
+from typing import Any, Literal
 
 from pydantic import BaseModel, Field, field_validator
 
@@ -34,6 +34,7 @@ class ReportCreate(BaseModel):
     submission_channel: SubmissionChannel = "app"
     collected_at: datetime
     location: LocationInput
+    form_responses: dict[str, Any] | None = None
 
     @field_validator("reporter_name", mode="before")
     @classmethod
@@ -68,6 +69,7 @@ class ReportOut(BaseModel):
     collected_at: datetime
     submitted_at: datetime
     location: LocationSummary | LocationDetail | None = None
+    form_responses: dict[str, Any] | None = None
 
 
 class ReportVersionOut(BaseModel):

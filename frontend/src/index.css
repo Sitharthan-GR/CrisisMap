@@ -30,13 +30,13 @@
 
 .leaflet-container {
   font-family: inherit;
-  background: #0f1419;
+  background: var(--surface-2);
   width: 100%;
   height: 100%;
 }
 
 .leaflet-popup-content-wrapper {
-  @apply rounded-lg border border-surface-border bg-surface-raised text-slate-100 shadow-panel;
+  @apply rounded-lg border border-surface-border bg-surface-raised text-ink shadow-panel;
 }
 
 .leaflet-popup-content {
@@ -50,7 +50,7 @@
 }
 
 .leaflet-control-zoom a {
-  @apply border-surface-border bg-surface-raised text-slate-200;
+  @apply border-surface-border bg-surface-raised text-ink-dim;
 }
 
 .leaflet-control-zoom a:hover {

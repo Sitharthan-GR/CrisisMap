@@ -15,11 +15,13 @@ class CrisisCreate(BaseModel):
     epicenter_lat: float | None = None
     epicenter_lng: float | None = None
     onset_at: datetime
+    form_template_id: str | None = None
 
 
 class CrisisUpdate(BaseModel):
     name: str | None = Field(default=None, max_length=200)
     status: CrisisStatus | None = None
+    form_template_id: str | None = None
 
 
 class CrisisOut(BaseModel):
@@ -31,6 +33,7 @@ class CrisisOut(BaseModel):
     epicenter_lng: float | None = None
     status: CrisisStatus
     is_unlisted: bool = False
+    form_template_id: str | None = None
     onset_at: datetime
     created_at: datetime
 
