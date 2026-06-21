@@ -40,6 +40,8 @@
     "selectedLocation": "Выбранное место",
     "noLocationSelected": "Найдите место, используйте GPS или поставьте метку",
     "reportAtLocation": "Сообщить о повреждении здесь",
+    "pinDropCancel": "Отмена",
+    "pinDropChangeLocation": "Изменить место",
     "errors": {
       "loadCrises": "Не удалось загрузить кризисы. Работает ли API?",
       "loadMap": "Не удалось загрузить данные карты. Работает ли API?",
@@ -70,6 +72,14 @@
     "expandSearch": "Развернуть панель поиска",
     "collapseFeed": "Свернуть ленту активности",
     "expandFeed": "Развернуть ленту активности"
+  },
+  "mobileNav": {
+    "ariaLabel": "Основная навигация",
+    "map": "Карта",
+    "search": "Поиск",
+    "feed": "Лента",
+    "report": "Сообщить",
+    "closePanel": "Закрыть панель"
   },
   "damage": {
     "minimal": "Минимальные повреждения",

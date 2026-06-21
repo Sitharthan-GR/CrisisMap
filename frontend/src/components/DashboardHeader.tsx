@@ -65,7 +65,7 @@ export default function DashboardHeader({
         <Shield strokeWidth={2} />
         {t("nav.admin")}
       </Link>
-      <Link to="/report" className="btn btn-primary btn-sm">
+      <Link to="/report" className="btn btn-primary btn-sm header-report">
         <Plus strokeWidth={2.2} />
         {t("nav.reportDamage")}
       </Link>

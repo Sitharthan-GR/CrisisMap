@@ -60,6 +60,8 @@
     "selectedLocation": "Selected location",
     "noLocationSelected": "Search, use GPS, or drop a pin to choose a location",
     "reportAtLocation": "Report damage here",
+    "pinDropCancel": "Cancel",
+    "pinDropChangeLocation": "Change location",
     "loadingReports": "Loading reports…",
     "loadingReportsFor": "Loading {{crisis}}…",
     "errors": {
@@ -99,6 +101,14 @@
     "expandSearch": "Expand search panel",
     "collapseFeed": "Collapse activity feed",
     "expandFeed": "Expand activity feed"
+  },
+  "mobileNav": {
+    "ariaLabel": "Main navigation",
+    "map": "Map",
+    "search": "Search",
+    "feed": "Feed",
+    "report": "Report",
+    "closePanel": "Close panel"
   },
   "damage": {
     "minimal": "Minimal damage",

@@ -40,6 +40,8 @@
     "selectedLocation": "الموقع المحدد",
     "noLocationSelected": "ابحث أو استخدم GPS أو أسقط دبوساً لاختيار موقع",
     "reportAtLocation": "الإبلاغ عن ضرر هنا",
+    "pinDropCancel": "إلغاء",
+    "pinDropChangeLocation": "تغيير الموقع",
     "errors": {
       "loadCrises": "تعذّر تحميل الأزمات. هل الخادم يعمل؟",
       "loadMap": "تعذّر تحميل بيانات الخريطة. هل الخادم يعمل؟",
@@ -70,6 +72,14 @@
     "expandSearch": "توسيع لوحة البحث",
     "collapseFeed": "طي موجز النشاط",
     "expandFeed": "توسيع موجز النشاط"
+  },
+  "mobileNav": {
+    "ariaLabel": "التنقل الرئيسي",
+    "map": "الخريطة",
+    "search": "بحث",
+    "feed": "النشاط",
+    "report": "إبلاغ",
+    "closePanel": "إغلاق اللوحة"
   },
   "damage": {
     "minimal": "أضرار طفيفة",

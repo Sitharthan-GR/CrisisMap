@@ -40,6 +40,8 @@
     "selectedLocation": "Emplacement sélectionné",
     "noLocationSelected": "Recherchez, utilisez le GPS ou placez une épingle",
     "reportAtLocation": "Signaler des dommages ici",
+    "pinDropCancel": "Annuler",
+    "pinDropChangeLocation": "Changer l'emplacement",
     "errors": {
       "loadCrises": "Impossible de charger les crises. L'API fonctionne-t-elle ?",
       "loadMap": "Impossible de charger la carte. L'API fonctionne-t-elle ?",
@@ -70,6 +72,14 @@
     "expandSearch": "Développer le panneau de recherche",
     "collapseFeed": "Réduire le fil d'activité",
     "expandFeed": "Développer le fil d'activité"
+  },
+  "mobileNav": {
+    "ariaLabel": "Navigation principale",
+    "map": "Carte",
+    "search": "Recherche",
+    "feed": "Activité",
+    "report": "Signaler",
+    "closePanel": "Fermer le panneau"
   },
   "damage": {
     "minimal": "Dégâts minimes",

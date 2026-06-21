@@ -40,6 +40,8 @@
     "selectedLocation": "Ubicación seleccionada",
     "noLocationSelected": "Busque, use GPS o coloque un pin para elegir ubicación",
     "reportAtLocation": "Reportar daños aquí",
+    "pinDropCancel": "Cancelar",
+    "pinDropChangeLocation": "Cambiar ubicación",
     "errors": {
       "loadCrises": "No se pudieron cargar las crisis. ¿Está funcionando la API?",
       "loadMap": "No se pudieron cargar los datos del mapa. ¿Está funcionando la API?",
@@ -70,6 +72,14 @@
     "expandSearch": "Expandir panel de búsqueda",
     "collapseFeed": "Contraer actividad en vivo",
     "expandFeed": "Expandir actividad en vivo"
+  },
+  "mobileNav": {
+    "ariaLabel": "Navegación principal",
+    "map": "Mapa",
+    "search": "Buscar",
+    "feed": "Actividad",
+    "report": "Reportar",
+    "closePanel": "Cerrar panel"
   },
   "damage": {
     "minimal": "Daño mínimo",

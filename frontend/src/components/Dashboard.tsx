@@ -1,6 +1,7 @@
-import { Crosshair } from "lucide-react";
+import { Crosshair, MapPin, MapPinPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
+import { useNavigate } from "react-router-dom";
 import {
   ApiError,
   fetchActiveCrises,
@@ -36,6 +37,8 @@ import CrisisMap from "./CrisisMap";
 import CrisisSearchRail from "./CrisisSearchRail";
 import DashboardHeader from "./DashboardHeader";
 import LiveActivityFeed from "./LiveActivityFeed";
+import { useMobileNav } from "../lib/MobileNavContext";
+import { MOBILE_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
 
 function mapFeaturesToPins(
   features: MapFeatureCollection["features"],
@@ -55,6 +58,7 @@ function mapFeaturesToPins(
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const navigate = useNavigate();
   const [viewport, setViewport] = useState<MapViewport>({
     lat: DEFAULT_CENTER.lat,
     lng: DEFAULT_CENTER.lng,
@@ -67,10 +71,13 @@ export default function Dashboard() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
+  const isMobile = useMediaQuery(MOBILE_BREAKPOINT);
+  const { panel: mobilePanel, setPanel: setMobilePanel, setFeedCount } = useMobileNav();
   const [railOpen, setRailOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
   const [pickedLocation, setPickedLocation] = useState<PickedMapLocation | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
+  const [awaitingPinReport, setAwaitingPinReport] = useState(false);
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -100,6 +107,15 @@ export default function Dashboard() {
       sortReports(filteredReports, reportSort, viewport.lat, viewport.lng),
     [filteredReports, reportSort, viewport.lat, viewport.lng],
   );
+
+  useEffect(() => {
+    setFeedCount(filteredReports.length);
+  }, [filteredReports.length, setFeedCount]);
+
+  useEffect(() => {
+    document.body.classList.toggle("pin-drop-focus", pinDropMode);
+    return () => document.body.classList.remove("pin-drop-focus");
+  }, [pinDropMode]);
 
   const loadData = useCallback(
     async (crisisId: string) => {
@@ -317,31 +333,52 @@ export default function Dashboard() {
 
   const handleMapPick = (lat: number, lng: number) => {
     void resolveMapPickLabel(lat, lng).then((label) => {
-      applyPickedLocation({
+      const pick: PickedMapLocation = {
         lat,
         lng,
         label,
         source: "map",
-      });
-      setAddressQuery(label);
+      };
+      if (pinDropMode) {
+        finishPinDrop(pick, label);
+      } else {
+        applyPickedLocation(pick);
+        setAddressQuery(label);
+      }
     });
   };
 
   const handleBuildingPick = (pick: BuildingPick) => {
-    applyPickedLocation({
+    const location: PickedMapLocation = {
       lat: pick.lat,
       lng: pick.lng,
       label: pick.label,
       buildingFootprintId: pick.buildingId || undefined,
       source: "building",
-    });
-    setAddressQuery(pick.label);
+    };
+    if (pinDropMode) {
+      finishPinDrop(location, pick.label);
+    } else {
+      applyPickedLocation(location);
+      setAddressQuery(pick.label);
+    }
   };
 
   const handleSelectReport = (report: MapReportPin) => {
     setSelectedReport(report);
-    setFeedOpen(false);
+    if (isMobile) {
+      setMobilePanel("map");
+    } else {
+      setFeedOpen(false);
+    }
   };
+
+  const handleMobileBackdropClose = () => {
+    setMobilePanel("map");
+  };
+
+  const railPanelOpen = isMobile ? mobilePanel === "search" : railOpen;
+  const feedPanelOpen = isMobile ? mobilePanel === "feed" : feedOpen;
 
   const handleCrisisChange = (crisisId: string) => {
     centeredCrisisRef.current = null;
@@ -350,7 +387,59 @@ export default function Dashboard() {
   };
 
   const handleTogglePinDrop = () => {
-    setPinDropMode((active) => !active);
+    if (pinDropMode) {
+      cancelPinDrop();
+    } else {
+      startPinDrop();
+    }
+  };
+
+  const startPinDrop = () => {
+    setPinDropMode(true);
+    setAwaitingPinReport(false);
+    setSelectedReport(null);
+    if (isMobile) {
+      setMobilePanel("map");
+    } else {
+      setRailOpen(false);
+      setFeedOpen(false);
+    }
+  };
+
+  const cancelPinDrop = () => {
+    setPinDropMode(false);
+    setAwaitingPinReport(false);
+  };
+
+  const finishPinDrop = (pick: PickedMapLocation, label: string) => {
+    applyPickedLocation(pick);
+    setAddressQuery(label);
+    setPinDropMode(false);
+    setAwaitingPinReport(true);
+    if (isMobile) {
+      setMobilePanel("map");
+    }
+  };
+
+  const goToReportAtPin = () => {
+    if (!pickedLocation) return;
+    navigate("/report", {
+      state: {
+        locationPrefill: {
+          latitude: pickedLocation.lat,
+          longitude: pickedLocation.lng,
+          placeLabel: pickedLocation.label,
+          locationMethod: "manual" as const,
+          crisisId: selectedCrisisId || undefined,
+          buildingFootprintId: pickedLocation.buildingFootprintId,
+        },
+      },
+    });
+    setAwaitingPinReport(false);
+  };
+
+  const dismissPinReport = () => {
+    setAwaitingPinReport(false);
   };
 
   const selectedCrisis = crisisEvents.find((c) => c.id === selectedCrisisId);
@@ -360,13 +449,14 @@ export default function Dashboard() {
     : t("dashboard.mapReportsEpicenter", { count: filteredReports.length });
 
   return (
-    <div className="dashboard-app">
+    <div className={`dashboard-app${pinDropMode ? " pin-drop-focus" : ""}`}>
       <DashboardHeader
         onRailToggle={() => setRailOpen((open) => !open)}
         onFeedToggle={() => setFeedOpen((open) => !open)}
       />
 
-      <aside className={`dashboard-rail${railOpen ? " open" : ""}`}>
+      <aside className={`dashboard-rail${railPanelOpen ? " open" : ""}`}>
+        {isMobile && railPanelOpen && <div className="mobile-sheet-handle" aria-hidden />}
         <CrisisSearchRail
           crisisEvents={crisisEvents}
           selectedCrisisId={selectedCrisisId}
@@ -408,7 +498,7 @@ export default function Dashboard() {
                 ? t("dashboard.loadingReportsFor", { crisis: selectedCrisis.name })
                 : t("dashboard.loadingReports")
             }
-            layoutKey={`${railOpen}-${feedOpen}`}
+            layoutKey={`${railPanelOpen}-${feedPanelOpen}-${pinDropMode}`}
             pinDropActive={pinDropMode}
             pickedLocation={pickedLocation}
             onMapPick={handleMapPick}
@@ -429,17 +519,65 @@ export default function Dashboard() {
           />
 
           {pinDropMode && (
-            <div className="pin-drop-banner">{t("dashboard.pinDropHint")}</div>
+            <div className="pin-drop-overlay">
+              <div className="pin-drop-banner">{t("dashboard.pinDropHint")}</div>
+              <button
+                type="button"
+                className="pin-drop-cancel-btn"
+                onClick={cancelPinDrop}
+                aria-label={t("dashboard.pinDropCancel")}
+              >
+                <X strokeWidth={2.2} aria-hidden />
+                {t("dashboard.pinDropCancel")}
+              </button>
+            </div>
           )}
 
-          <div className="map-chip">
-            <Crosshair strokeWidth={2} />
-            <span>{mapChipLabel}</span>
-          </div>
+          {awaitingPinReport && pickedLocation && !pinDropMode && (
+            <div className="pin-drop-result-bar">
+              <div className="pin-drop-result-info">
+                <MapPin strokeWidth={2} aria-hidden />
+                <span>{pickedLocation.label.split(",")[0]?.trim() || pickedLocation.label}</span>
+              </div>
+              <div className="pin-drop-result-actions">
+                <button
+                  type="button"
+                  className="btn btn-primary btn-sm pin-drop-report-btn"
+                  onClick={goToReportAtPin}
+                >
+                  <MapPinPlus strokeWidth={2.2} aria-hidden />
+                  {t("dashboard.reportAtLocation")}
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-sm pin-drop-change-btn"
+                  onClick={startPinDrop}
+                >
+                  {t("dashboard.pinDropChangeLocation")}
+                </button>
+                <button
+                  type="button"
+                  className="icon-btn sm pin-drop-dismiss-btn"
+                  onClick={dismissPinReport}
+                  aria-label={t("dashboard.pinDropCancel")}
+                >
+                  <X strokeWidth={2.2} aria-hidden />
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!pinDropMode && !awaitingPinReport && (
+            <div className="map-chip">
+              <Crosshair strokeWidth={2} />
+              <span>{mapChipLabel}</span>
+            </div>
+          )}
         </div>
       </main>
 
-      <aside className={`dashboard-feed${feedOpen ? " open" : ""}`}>
+      <aside className={`dashboard-feed${feedPanelOpen ? " open" : ""}`}>
+        {isMobile && feedPanelOpen && <div className="mobile-sheet-handle" aria-hidden />}
         <LiveActivityFeed
           reports={sortedFeedReports}
           selectedId={selectedReport?.id}
@@ -453,6 +591,15 @@ export default function Dashboard() {
           onSortChange={setReportSort}
         />
       </aside>
+
+      {isMobile && mobilePanel !== "map" && (
+        <button
+          type="button"
+          className="mobile-sheet-backdrop"
+          aria-label={t("mobileNav.closePanel")}
+          onClick={handleMobileBackdropClose}
+        />
+      )}
     </div>
   );
 }

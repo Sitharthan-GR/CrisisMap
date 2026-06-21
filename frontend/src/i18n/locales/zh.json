@@ -40,6 +40,8 @@
     "selectedLocation": "已选位置",
     "noLocationSelected": "搜索、使用 GPS 或在地图上放置标记以选择位置",
     "reportAtLocation": "在此报告损害",
+    "pinDropCancel": "取消",
+    "pinDropChangeLocation": "更改位置",
     "errors": {
       "loadCrises": "无法加载危机数据。API 是否在运行？",
       "loadMap": "无法加载地图数据。API 是否在运行？",
@@ -70,6 +72,14 @@
     "expandSearch": "展开搜索面板",
     "collapseFeed": "收起动态面板",
     "expandFeed": "展开动态面板"
+  },
+  "mobileNav": {
+    "ariaLabel": "主导航",
+    "map": "地图",
+    "search": "搜索",
+    "feed": "动态",
+    "report": "上报",
+    "closePanel": "关闭面板"
   },
   "damage": {
     "minimal": "轻微损害",
