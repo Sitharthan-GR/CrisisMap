@@ -489,9 +489,6 @@ select.field {
   align-items: center;
   gap: 12px;
   padding: 15px;
-  cursor: pointer;
-  border: none;
-  background: none;
   width: 100%;
   text-align: start;
   color: inherit;
@@ -532,21 +529,11 @@ select.field {
 .area-workflow {
   border-top: 1px solid var(--border);
   padding: 15px;
-  display: none;
+  display: block;
 }
 
 .area-card.editing .area-workflow {
   display: block;
-}
-
-.area-card.editing .area-summary .chev {
-  transform: rotate(180deg);
-}
-
-.area-summary .chev {
-  transition: transform 0.18s;
-  color: var(--text-faint);
-  flex: none;
 }
 
 .method-tabs {

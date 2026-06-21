@@ -1,5 +1,4 @@
 import {
-  ChevronDown,
   Crosshair,
   FlaskConical,
   LocateFixed,
@@ -11,6 +10,13 @@ import { useTranslation } from "react-i18next";
 import type { PlaceSearchResult } from "../api/client";
 import type { PickedMapLocation } from "../types/location";
 import type { Crisis } from "../types/report";
+import {
+  displayValueToMeters,
+  formatRadiusLabel,
+  metersToDisplayValue,
+  radiusSliderConfig,
+  type DistanceSystem,
+} from "../lib/units";
 
 type LocationMethod = "search" | "gps" | "pin";
 
@@ -20,6 +26,7 @@ interface CrisisSearchRailProps {
   selectedCrisis?: Crisis;
   loading: boolean;
   radiusMeters: number;
+  distanceSystem: DistanceSystem;
   reportsInRangeCount: number;
   pickedLocation: PickedMapLocation | null;
   addressQuery: string;
@@ -40,16 +47,13 @@ function shortPlaceLabel(label: string): string {
   return first || label;
 }
 
-function radiusKmFromMeters(meters: number): number {
-  return Math.round(meters / 1000);
-}
-
 export default function CrisisSearchRail({
   crisisEvents,
   selectedCrisisId,
   selectedCrisis,
   loading,
   radiusMeters,
+  distanceSystem,
   reportsInRangeCount,
   pickedLocation,
   addressQuery,
@@ -65,20 +69,19 @@ export default function CrisisSearchRail({
   onApplyRadius,
 }: CrisisSearchRailProps) {
   const { t } = useTranslation();
-  const [areaEditing, setAreaEditing] = useState(false);
   const [locationMethod, setLocationMethod] = useState<LocationMethod>("search");
-  const [draftRadiusKm, setDraftRadiusKm] = useState(radiusKmFromMeters(radiusMeters));
+  const [draftRadius, setDraftRadius] = useState(() =>
+    metersToDisplayValue(radiusMeters, distanceSystem),
+  );
+  const slider = radiusSliderConfig(distanceSystem);
 
   useEffect(() => {
-    if (!areaEditing) {
-      setDraftRadiusKm(radiusKmFromMeters(radiusMeters));
-    }
-  }, [radiusMeters, areaEditing]);
+    setDraftRadius(metersToDisplayValue(radiusMeters, distanceSystem));
+  }, [radiusMeters, distanceSystem]);
 
   useEffect(() => {
     if (pinDropMode) {
       setLocationMethod("pin");
-      setAreaEditing(true);
     }
   }, [pinDropMode]);
 
@@ -87,8 +90,8 @@ export default function CrisisSearchRail({
     selectedCrisis?.name ||
     t("dashboard.areaDefaultPlace");
 
-  const areaTitle = t("dashboard.areaWithinKm", {
-    km: radiusKmFromMeters(radiusMeters),
+  const areaTitle = t("dashboard.areaWithin", {
+    distance: formatRadiusLabel(radiusMeters, distanceSystem),
     place: placeName,
   });
 
@@ -102,20 +105,13 @@ export default function CrisisSearchRail({
       : "dashboard.areaSubDefault";
   const areaSub = t(areaSubKey, { count: reportsInRangeCount });
 
-  const openEditing = () => {
-    setDraftRadiusKm(radiusKmFromMeters(radiusMeters));
-    setAreaEditing(true);
-  };
-
-  const cancelEditing = () => {
-    setDraftRadiusKm(radiusKmFromMeters(radiusMeters));
-    setAreaEditing(false);
+  const resetAreaDraft = () => {
+    setDraftRadius(metersToDisplayValue(radiusMeters, distanceSystem));
     if (pinDropMode) onTogglePinDrop();
   };
 
   const applyArea = () => {
-    onApplyRadius(draftRadiusKm * 1000);
-    setAreaEditing(false);
+    onApplyRadius(displayValueToMeters(draftRadius, distanceSystem));
   };
 
   return (
@@ -161,12 +157,8 @@ export default function CrisisSearchRail({
         )}
       </div>
 
-      <div className={`card area-card${areaEditing ? " editing" : ""}`}>
-        <button
-          type="button"
-          className="area-summary"
-          onClick={() => (areaEditing ? cancelEditing() : openEditing())}
-        >
+      <div className="card area-card editing">
+        <div className="area-summary">
           <span className="aico">
             <MapPin strokeWidth={2} />
           </span>
@@ -174,8 +166,7 @@ export default function CrisisSearchRail({
             <div className="a1">{areaTitle}</div>
             <div className="a2">{areaSub}</div>
           </span>
-          <ChevronDown className="chev" width={18} height={18} strokeWidth={2.2} />
-        </button>
+        </div>
 
         <div className="area-workflow">
           <div className="method-tabs">
@@ -264,20 +255,25 @@ export default function CrisisSearchRail({
           <div className="radius-row">
             <div className="rl">
               <span className="label">{t("dashboard.searchRadius")}</span>
-              <span className="rv">{draftRadiusKm} km</span>
+              <span className="rv">
+                {formatRadiusLabel(
+                  displayValueToMeters(draftRadius, distanceSystem),
+                  distanceSystem,
+                )}
+              </span>
             </div>
             <input
               type="range"
-              min={5}
-              max={50}
-              step={5}
-              value={draftRadiusKm}
-              onChange={(e) => setDraftRadiusKm(Number(e.target.value))}
+              min={slider.min}
+              max={slider.max}
+              step={slider.step}
+              value={draftRadius}
+              onChange={(e) => setDraftRadius(Number(e.target.value))}
             />
           </div>
 
           <div className="wf-actions">
-            <button type="button" className="btn btn-block" onClick={cancelEditing}>
+            <button type="button" className="btn btn-block" onClick={resetAreaDraft}>
               {t("admin.cancel")}
             </button>
             <button type="button" className="btn btn-primary btn-block" onClick={applyArea}>

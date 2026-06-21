@@ -1,5 +1,6 @@
 import type { Crisis, MapReportPin } from "../types/report";
-import { DEFAULT_RADIUS_METERS, RADIUS_OPTIONS } from "./constants";
+import { DEFAULT_RADIUS_METERS } from "./constants";
+import { RADIUS_OPTIONS_METERS } from "./units";
 
 /** Haversine distance in meters between two WGS84 points. */
 export function distanceMeters(
@@ -101,8 +102,8 @@ export function radiusForReports(
   }
 
   const padded = maxDist * 1.15 + 500;
-  for (const option of RADIUS_OPTIONS) {
-    if (padded <= option.value) return option.value;
+  for (const option of RADIUS_OPTIONS_METERS) {
+    if (padded <= option) return option;
   }
-  return RADIUS_OPTIONS[RADIUS_OPTIONS.length - 1].value;
+  return RADIUS_OPTIONS_METERS[RADIUS_OPTIONS_METERS.length - 1];
 }

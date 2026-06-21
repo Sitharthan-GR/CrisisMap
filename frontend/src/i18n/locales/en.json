@@ -34,6 +34,7 @@
     "gpsHint": "We'll centre the search area on your device's GPS position.",
     "pinHint": "Then drag the pin to fine-tune the centre point.",
     "areaWithinKm": "Within {{km}} km of {{place}}",
+    "areaWithin": "Within {{distance}} of {{place}}",
     "areaDefaultPlace": "search centre",
     "areaSubDefault": "Epicentre · {{count}} reports in range",
     "areaSubDefault_one": "Epicentre · {{count}} report in range",
@@ -74,6 +75,7 @@
   "stats": {
     "reportsInRange": "Reports in range",
     "withinKm": "Within {{km}} km",
+    "withinDistance": "Within {{distance}}",
     "damageSites": "Damage sites",
     "partialComplete": "Partial & complete",
     "activeCrises": "Active crises",

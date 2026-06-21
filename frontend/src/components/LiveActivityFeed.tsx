@@ -7,6 +7,7 @@ import {
   infraTypeLabel,
 } from "../lib/severity";
 import { distanceMeters } from "../lib/geo";
+import { formatDistance as formatDistanceLabel, type DistanceSystem } from "../lib/units";
 import type { DamageFilter, ReportSort } from "../lib/reportFilters";
 
 interface LiveActivityFeedProps {
@@ -16,15 +17,11 @@ interface LiveActivityFeedProps {
   loading?: boolean;
   centerLat: number;
   centerLng: number;
+  distanceSystem: DistanceSystem;
   damageFilter: DamageFilter;
   onDamageFilterChange: (filter: DamageFilter) => void;
   sort: ReportSort;
   onSortChange: (sort: ReportSort) => void;
-}
-
-function formatDistance(meters: number): string {
-  if (meters < 1000) return `${Math.round(meters)} m`;
-  return `${(meters / 1000).toFixed(1)} km`;
 }
 
 const DAMAGE_FILTERS: DamageFilter[] = ["all", "complete", "partial", "minimal"];
@@ -36,6 +33,7 @@ export default function LiveActivityFeed({
   loading = false,
   centerLat,
   centerLng,
+  distanceSystem,
   damageFilter,
   onDamageFilterChange,
   sort,
@@ -159,7 +157,7 @@ export default function LiveActivityFeed({
                     <b>{damageLevelLabel(report.damageLevel)}</b>
                   </div>
                   <span className="fmeta">
-                    {infraTypeLabel(report.infraType)} · {formatDistance(dist)}
+                    {infraTypeLabel(report.infraType)} · {formatDistanceLabel(dist, distanceSystem)}
                   </span>
                   {report.adminLevel2 && (
                     <span className="fsub">{report.adminLevel2}</span>

@@ -41,6 +41,7 @@ import DashboardHeader from "./DashboardHeader";
 import LiveActivityFeed from "./LiveActivityFeed";
 import { useMobileNav } from "../lib/MobileNavContext";
 import { MOBILE_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
+import { useDistanceSystem } from "../lib/useDistanceSystem";
 
 function reportDetailToPin(detail: ReportDetail): MapReportPin | null {
   if (!detail.location) return null;
@@ -89,6 +90,7 @@ export default function Dashboard() {
   const [error, setError] = useState<string | null>(null);
   const [locating, setLocating] = useState(false);
   const isMobile = useMediaQuery(MOBILE_BREAKPOINT);
+  const distanceSystem = useDistanceSystem(viewport.lat, viewport.lng);
   const { panel: mobilePanel, setPanel: setMobilePanel, setFeedCount } = useMobileNav();
   const [railOpen, setRailOpen] = useState(false);
   const [feedOpen, setFeedOpen] = useState(false);
@@ -639,6 +641,7 @@ export default function Dashboard() {
           selectedCrisis={selectedCrisis}
           loading={loading}
           radiusMeters={viewport.radiusMeters}
+          distanceSystem={distanceSystem}
           reportsInRangeCount={filteredReports.length}
           pickedLocation={pickedLocation}
           addressQuery={addressQuery}
@@ -773,6 +776,7 @@ export default function Dashboard() {
           loading={loading}
           centerLat={viewport.lat}
           centerLng={viewport.lng}
+          distanceSystem={distanceSystem}
           damageFilter={damageFilter}
           onDamageFilterChange={setDamageFilter}
           sort={reportSort}

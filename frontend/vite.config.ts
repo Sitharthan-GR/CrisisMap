@@ -38,7 +38,8 @@ export default defineConfig({
         globPatterns: ["**/*.{js,css,html,ico,png,svg,woff2}"],
       },
       devOptions: {
-        enabled: true,
+        // Avoid caching broken HMR bundles during local development.
+        enabled: false,
       },
     }),
   ],
