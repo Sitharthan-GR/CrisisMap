@@ -418,9 +418,13 @@
     "submitReport": "Submit report",
     "switchCrisis": "Choose a different crisis",
     "filesSelected": "{{count}} file(s) selected",
+    "descriptionLabel": "Description",
+    "photosLabel": "Photos",
     "errors": {
       "loadTemplate": "Could not load the report form for this crisis.",
-      "required": "{{field}} is required."
+      "required": "{{field}} is required.",
+      "descriptionRequired": "Description is required.",
+      "photosRequired": "At least one photo is required."
     }
   },
   "export": {

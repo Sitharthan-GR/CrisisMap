@@ -1,4 +1,4 @@
-import { ArrowLeft, CircleCheck } from "lucide-react";
+import { ArrowLeft, Camera, CircleCheck, X } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
@@ -35,7 +35,7 @@ import { fieldTypeHasOptions } from "../types/formTemplate";
 import type { Crisis, Report, ReportCreateInput } from "../types/report";
 import ReportLocationPicker from "./ReportLocationPicker";
 
-type CustomStep = "form" | "location" | "done";
+type CustomStep = "form" | "location" | "attachments" | "done";
 
 interface CustomReportWizardProps {
   crisis: Crisis;
@@ -71,6 +71,8 @@ export default function CustomReportWizard({
   const [step, setStep] = useState<CustomStep>("form");
   const [values, setValues] = useState<Record<string, unknown>>({});
   const [fileFields, setFileFields] = useState<Record<string, PendingPhoto[]>>({});
+  const [description, setDescription] = useState("");
+  const [pendingPhotos, setPendingPhotos] = useState<PendingPhoto[]>([]);
   const [reporterName, setReporterName] = useState(loadReporterName);
   const [latitude, setLatitude] = useState("");
   const [longitude, setLongitude] = useState("");
@@ -89,6 +91,9 @@ export default function CustomReportWizard({
   const [submittedOffline, setSubmittedOffline] = useState(false);
   const [uploadedPhotoCount, setUploadedPhotoCount] = useState(0);
   const gpsAttemptedRef = useRef(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const pendingPhotosRef = useRef(pendingPhotos);
+  pendingPhotosRef.current = pendingPhotos;
 
   useEffect(() => {
     if (!crisis.form_template_id) return;
@@ -160,6 +165,10 @@ export default function CustomReportWizard({
     };
   }, [addressQuery]);
 
+  useEffect(() => {
+    return () => pendingPhotosRef.current.forEach(revokePendingPhoto);
+  }, []);
+
   const setFieldValue = (fieldId: string, value: unknown) => {
     setValues((prev) => ({ ...prev, [fieldId]: value }));
   };
@@ -195,6 +204,37 @@ export default function CustomReportWizard({
     event.target.value = "";
   };
 
+  const handleAddPhotos = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const files = Array.from(event.target.files ?? []);
+    if (files.length === 0) return;
+
+    setError(null);
+    const remaining = MAX_PHOTOS_PER_REPORT - pendingPhotos.length;
+    const toAdd: PendingPhoto[] = [];
+
+    for (const file of files.slice(0, remaining)) {
+      const validationError = validateImageFile(file);
+      if (validationError) {
+        setError(t(`wizard.errors.${validationError}`));
+        continue;
+      }
+      toAdd.push(fileToPendingPhoto(file));
+    }
+
+    if (toAdd.length > 0) {
+      setPendingPhotos((prev) => [...prev, ...toAdd]);
+    }
+    event.target.value = "";
+  };
+
+  const handleRemovePhoto = (photoId: string) => {
+    setPendingPhotos((prev) => {
+      const removed = prev.find((p) => p.id === photoId);
+      if (removed) revokePendingPhoto(removed);
+      return prev.filter((p) => p.id !== photoId);
+    });
+  };
+
   const validateForm = (): boolean => {
     if (!template) return false;
     for (const field of template.fields) {
@@ -223,7 +263,33 @@ export default function CustomReportWizard({
     return true;
   };
 
-  const allPendingPhotos = Object.values(fileFields).flat();
+  const validateLocation = (): boolean => {
+    if (locationStatus === "detecting") {
+      return false;
+    }
+    if (!latitude || !longitude) {
+      setError(t("wizard.errors.locationRequired"));
+      return false;
+    }
+    setError(null);
+    return true;
+  };
+
+  const validateAttachments = (): boolean => {
+    if (!description.trim()) {
+      setError(t("customForm.errors.descriptionRequired"));
+      return false;
+    }
+    if (pendingPhotos.length === 0) {
+      setError(t("customForm.errors.photosRequired"));
+      return false;
+    }
+    setError(null);
+    return true;
+  };
+
+  const templateFilePhotos = Object.values(fileFields).flat();
+  const allPendingPhotos = [...pendingPhotos, ...templateFilePhotos];
 
   const finishOfflineSubmission = async (payload: ReportCreateInput) => {
     await queueReportForSync(payload, allPendingPhotos.map((p) => p.file));
@@ -232,6 +298,7 @@ export default function CustomReportWizard({
     }
     allPendingPhotos.forEach(revokePendingPhoto);
     setFileFields({});
+    setPendingPhotos([]);
     setUploadedPhotoCount(allPendingPhotos.length);
     setSubmittedOffline(true);
     setSubmittedReport(null);
@@ -239,8 +306,7 @@ export default function CustomReportWizard({
   };
 
   const submitReport = async () => {
-    if (!template || !latitude || !longitude) {
-      setError(t("wizard.errors.locationRequired"));
+    if (!template || !validateLocation() || !validateAttachments()) {
       return;
     }
 
@@ -254,12 +320,15 @@ export default function CustomReportWizard({
       formResponses[fieldId] = photos.map((p) => p.file.name);
     }
 
+    const formSummary = formatResponsesSummary(template.fields, formResponses);
+    const descriptionText = description.trim();
+
     const payload: ReportCreateInput = {
       crisis_id: crisis.id,
       damage_level: "minimal",
       infra_type: "other",
       debris_present: false,
-      description_raw: formatResponsesSummary(template.fields, formResponses),
+      description_raw: [descriptionText, formSummary].filter(Boolean).join("\n\n") || undefined,
       reporter_name: resolvedReporterName,
       source_language: i18n.language,
       submission_channel: "app",
@@ -301,6 +370,7 @@ export default function CustomReportWizard({
 
       allPendingPhotos.forEach(revokePendingPhoto);
       setFileFields({});
+      setPendingPhotos([]);
       setSubmittedOffline(false);
       setSubmittedReport(report);
       setUploadedPhotoCount(photoCount);
@@ -579,6 +649,94 @@ export default function CustomReportWizard({
           />
 
           {error && <p className="custom-form-error">{error}</p>}
+
+          <button
+            type="button"
+            className="btn btn-primary btn-block"
+            disabled={locationStatus === "detecting" || !latitude || !longitude}
+            onClick={() => {
+              if (validateLocation()) setStep("attachments");
+            }}
+          >
+            {t("wizard.continue")}
+          </button>
+        </>
+      )}
+
+      {step === "attachments" && (
+        <>
+          <button
+            type="button"
+            className="custom-form-back"
+            onClick={() => setStep("location")}
+          >
+            <ArrowLeft strokeWidth={2} />
+            {t("customForm.back")}
+          </button>
+
+          <div className="custom-form-head">
+            <h2>{t("wizard.questions.photo")}</h2>
+          </div>
+
+          <div className="custom-form-field">
+            <label className="custom-form-label">
+              {t("customForm.descriptionLabel")}
+              <span className="form-required">*</span>
+            </label>
+            <textarea
+              className="report-wizard-field resize-y"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              placeholder={t("wizard.descriptionPlaceholder")}
+              rows={4}
+            />
+          </div>
+
+          <div className="custom-form-field">
+            <label className="custom-form-label">
+              {t("customForm.photosLabel")}
+              <span className="form-required">*</span>
+            </label>
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/jpeg,image/png,image/webp"
+              multiple
+              className="hidden"
+              onChange={handleAddPhotos}
+            />
+            <button
+              type="button"
+              onClick={() => fileInputRef.current?.click()}
+              disabled={submitting || pendingPhotos.length >= MAX_PHOTOS_PER_REPORT}
+              className="w-full rounded-xl border border-dashed border-surface-border px-4 py-6 text-center text-[13px] text-ink-dim transition hover:border-accent hover:text-ink disabled:opacity-50"
+            >
+              <Camera className="mx-auto mb-1.5 h-7 w-7" />
+              {t("wizard.tapPhoto")}
+            </button>
+            {pendingPhotos.length > 0 && (
+              <ul className="mt-3 grid grid-cols-3 gap-2">
+                {pendingPhotos.map((photo) => (
+                  <li key={photo.id} className="relative">
+                    <img
+                      src={photo.previewUrl}
+                      alt=""
+                      className="aspect-square w-full rounded-lg object-cover"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => handleRemovePhoto(photo.id)}
+                      className="absolute end-1 top-1 rounded-full bg-black/60 p-0.5"
+                    >
+                      <X className="h-3 w-3 text-white" />
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
+
+          {error && <p className="custom-form-error">{error}</p>}
           {uploadProgress && (
             <p className="custom-form-hint">{uploadProgress}</p>
           )}
@@ -586,7 +744,11 @@ export default function CustomReportWizard({
           <button
             type="button"
             className="btn btn-primary btn-block"
-            disabled={submitting || !latitude || !longitude}
+            disabled={
+              submitting ||
+              !description.trim() ||
+              pendingPhotos.length === 0
+            }
             onClick={() => void submitReport()}
           >
             {submitting ? t("wizard.submitting") : t("customForm.submitReport")}
