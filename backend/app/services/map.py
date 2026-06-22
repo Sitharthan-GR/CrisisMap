@@ -131,6 +131,7 @@ async def get_crisis_map(
                     "report_id": row["report_id"],
                     "damage_level": row["damage_level"],
                     "infra_type": row["infra_type"],
+                    "nature_of_crisis": row.get("nature_of_crisis"),
                     "report_count": row.get("report_count", 0),
                     "admin_level_2": row.get("admin_level_2"),
                     "latest_photo_thumbnail": signed_urls.get(storage_path)

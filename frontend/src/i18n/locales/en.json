@@ -11,9 +11,25 @@
   "nav": {
     "dashboard": "Dashboard",
     "reportDamage": "Report damage",
+    "mapHelp": "Map help",
     "refresh": "Refresh",
     "admin": "Admin",
     "backToDashboard": "Back to dashboard"
+  },
+  "help": {
+    "title": "Map markers guide",
+    "intro": "Each report on the map is a pin. The pin color shows how severe the damage is. The white icon inside shows what caused the damage — or the building type when the cause is not recorded.",
+    "damageTitle": "Pin color = damage severity",
+    "damageLead": "Green means minor damage. Orange means repairable damage. Red means severe or destroyed.",
+    "causeTitle": "Icon = cause of damage",
+    "causeLead": "These icons appear when a reporter selected what caused the damage.",
+    "infraTitle": "Icon = building type (fallback)",
+    "infraLead": "When no cause is recorded, the pin shows the type of building or structure instead.",
+    "crisisTypeTitle": "Crisis categories (admin)",
+    "crisisTypeLead": "Crises are grouped into three types in the admin console. This does not change pin icons on the map.",
+    "crisisTypeNatural": "Earthquakes, floods, wildfires, storms, and other natural events.",
+    "crisisTypeTech": "Industrial accidents, explosions, chemical leaks, and infrastructure failures.",
+    "crisisTypeHuman": "Conflict, displacement, and other human-caused crises."
   },
   "dashboard": {
     "crisisSearchArea": "Crisis & search area",

@@ -1,5 +1,6 @@
 import {
   ChevronDown,
+  CircleHelp,
   Crosshair,
   FlaskConical,
   LocateFixed,
@@ -61,6 +62,10 @@ export default function DashboardHeader({
 
       <LanguageSwitcher className="lang" variant="button" />
       <ThemeToggle />
+      <Link to="/help" className="btn btn-sm help-link" title={t("nav.mapHelp")}>
+        <CircleHelp strokeWidth={2} />
+        <span className="help-link__label">{t("nav.mapHelp")}</span>
+      </Link>
       <Link to="/admin" className="btn btn-sm admin">
         <Shield strokeWidth={2} />
         {t("nav.admin")}

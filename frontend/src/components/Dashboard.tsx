@@ -1,7 +1,7 @@
-import { Crosshair, MapPin, MapPinPlus, X } from "lucide-react";
+import { CircleHelp, Crosshair, MapPin, MapPinPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import {
   ApiError,
   fetchActiveCrises,
@@ -54,6 +54,7 @@ function reportDetailToPin(detail: ReportDetail): MapReportPin | null {
     longitude: detail.location.longitude,
     damageLevel: detail.damage_level,
     infraType: detail.infra_type,
+    natureOfCrisis: detail.nature_of_crisis,
     reportCount: 1,
     adminLevel2: detail.location.admin_level_2,
   };
@@ -69,6 +70,7 @@ function mapFeaturesToPins(
     longitude: feature.geometry.coordinates[0],
     damageLevel: feature.properties.damage_level,
     infraType: feature.properties.infra_type,
+    natureOfCrisis: feature.properties.nature_of_crisis,
     reportCount: feature.properties.report_count,
     adminLevel2: feature.properties.admin_level_2,
     thumbnail: feature.properties.latest_photo_thumbnail,
@@ -794,6 +796,15 @@ export default function Dashboard() {
                 <span>{mapChipLabel}</span>
               </div>
             ))}
+
+          <Link
+            to="/help"
+            className="map-help-btn"
+            title={t("nav.mapHelp")}
+            aria-label={t("nav.mapHelp")}
+          >
+            <CircleHelp strokeWidth={2} aria-hidden />
+          </Link>
         </div>
       </main>
 

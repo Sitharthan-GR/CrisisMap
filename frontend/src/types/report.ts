@@ -104,6 +104,7 @@ export interface MapReportProperties {
   report_id: string;
   damage_level: DamageLevel;
   infra_type: InfraType;
+  nature_of_crisis?: string | null;
   report_count: number;
   admin_level_2?: string | null;
   latest_photo_thumbnail?: string | null;
@@ -131,6 +132,7 @@ export interface MapReportPin {
   longitude: number;
   damageLevel: DamageLevel;
   infraType: InfraType;
+  natureOfCrisis?: string | null;
   reportCount: number;
   adminLevel2?: string | null;
   thumbnail?: string | null;

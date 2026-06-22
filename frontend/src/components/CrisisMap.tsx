@@ -5,7 +5,7 @@ import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } 
 import type { MapViewport } from "../types/crisis";
 import type { MapReportPin, Crisis } from "../types/report";
 import type { PickedMapLocation } from "../types/location";
-import { damageLevelColor } from "../lib/severity";
+import { createReportMapIcon } from "../lib/mapMarkers";
 import { basemapUrlForTheme, useTheme } from "../lib/theme";
 import BuildingFootprints, { type BuildingPick } from "./BuildingFootprints";
 import ReportMapOverlay from "./ReportMapOverlay";
@@ -271,24 +271,6 @@ function MapFitToReports({
   return null;
 }
 
-function createDamageIcon(damageLevel: string, selected: boolean) {
-  const color = damageLevelColor(damageLevel);
-  const size = selected ? 22 : 18;
-  return L.divIcon({
-    className: "",
-    html: `<div style="
-      width: ${size}px;
-      height: ${size}px;
-      border-radius: 50%;
-      background: ${color};
-      border: 2px solid white;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.45);
-    "></div>`,
-    iconSize: [size, size],
-    iconAnchor: [size / 2, size / 2],
-  });
-}
-
 function createPickedPinIcon() {
   return L.divIcon({
     className: "",
@@ -394,7 +376,13 @@ export default function CrisisMap({
             <Marker
               key={report.id}
               position={position}
-              icon={createDamageIcon(report.damageLevel, isSelected)}
+              icon={createReportMapIcon(
+                report.damageLevel,
+                report.natureOfCrisis,
+                report.infraType,
+                isSelected,
+              )}
+              zIndexOffset={isSelected ? 500 : 0}
               eventHandlers={{
                 click: () => onSelectReport(report),
               }}
