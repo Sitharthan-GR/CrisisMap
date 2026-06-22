@@ -1,7 +1,14 @@
 import { MapPin } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
-import { ApiError, fetchReportDetail, fetchReportVersions, isAbortError } from "../api/client";
+import {
+  ApiError,
+  fetchReportDetail,
+  fetchReportVersions,
+  fetchReverseGeocode,
+  isAbortError,
+} from "../api/client";
+import { formatStoredAddress, resolveGeocodeLabel } from "../lib/address";
 import { PhotoGallery } from "./PhotoLightbox";
 import ReportVersionHistory from "./ReportVersionHistory";
 import {
@@ -9,7 +16,7 @@ import {
   damageLevelLabel,
   infraTypeLabel,
 } from "../lib/severity";
-import type { ReportDetail, ReportLocation, ReportVersion, Crisis } from "../types/report";
+import type { ReportDetail, ReportVersion, Crisis } from "../types/report";
 
 interface ReportDetailContentProps {
   reportId: string;
@@ -36,27 +43,6 @@ function formatCoordinates(lat: number, lng: number): string {
   return `${Math.abs(lat).toFixed(4)}° ${latDir}, ${Math.abs(lng).toFixed(4)}° ${lngDir}`;
 }
 
-function locationLines(location: ReportLocation): {
-  primary: string | null;
-  secondary: string | null;
-} {
-  const { admin_level_1: l1, admin_level_2: l2, admin_level_3: l3 } = location;
-  const primaryParts = [l3, l2].filter(Boolean) as string[];
-  const primary =
-    primaryParts.length > 0
-      ? primaryParts.join(", ")
-      : l2 ?? l1 ?? null;
-
-  const secondaryParts: string[] = [];
-  if (l2 && !primaryParts.includes(l2)) secondaryParts.push(l2);
-  if (l1) secondaryParts.push(l1);
-
-  return {
-    primary,
-    secondary: secondaryParts.length > 0 ? secondaryParts.join(", ") : null,
-  };
-}
-
 function photoUrl(photo: ReportDetail["photos"][number]): string | null {
   return photo.signed_url ?? photo.thumbnail_url ?? null;
 }
@@ -75,6 +61,7 @@ export default function ReportDetailContent({
   const [error, setError] = useState<string | null>(null);
   const [activePhoto, setActivePhoto] = useState(0);
   const [activeTab, setActiveTab] = useState<DetailTab>("info");
+  const [resolvedAddress, setResolvedAddress] = useState<string | null>(null);
   const fetchGenerationRef = useRef(0);
 
   useEffect(() => {
@@ -85,6 +72,7 @@ export default function ReportDetailContent({
     setError(null);
     setDetail(null);
     setVersions([]);
+    setResolvedAddress(null);
     setActivePhoto(0);
     setActiveTab("info");
 
@@ -117,6 +105,32 @@ export default function ReportDetailContent({
 
     return () => controller.abort();
   }, [reportId, t]);
+
+  useEffect(() => {
+    const location = detail?.location;
+    if (!location) {
+      setResolvedAddress(null);
+      return;
+    }
+
+    const controller = new AbortController();
+    const fallback = formatStoredAddress(location);
+
+    void fetchReverseGeocode(location.latitude, location.longitude, controller.signal)
+      .then((geo) => {
+        const label = resolveGeocodeLabel(
+          geo,
+          fallback ?? formatCoordinates(location.latitude, location.longitude),
+        );
+        setResolvedAddress(label);
+      })
+      .catch((err) => {
+        if (isAbortError(err)) return;
+        setResolvedAddress(fallback);
+      });
+
+    return () => controller.abort();
+  }, [detail?.location?.id, detail?.location?.latitude, detail?.location?.longitude]);
 
   if (loading) {
     return (
@@ -153,9 +167,18 @@ export default function ReportDetailContent({
       })
     : null;
   const location = detail.location;
-  const { primary: locationPrimary, secondary: locationSecondary } = location
-    ? locationLines(location)
-    : { primary: null, secondary: null };
+  const storedAddress = location ? formatStoredAddress(location) : null;
+  const addressLine =
+    resolvedAddress ??
+    storedAddress ??
+    (location ? formatCoordinates(location.latitude, location.longitude) : null);
+  const showStoredFallback = Boolean(
+    resolvedAddress &&
+      storedAddress &&
+      resolvedAddress !== storedAddress &&
+      !resolvedAddress.includes(storedAddress),
+  );
+  const buildingName = detail.infra_name?.trim() || null;
   const hasHistory = versions.length > 1;
   const isPopup = variant === "popup";
   const isPanel = variant === "panel";
@@ -223,7 +246,7 @@ export default function ReportDetailContent({
             </p>
           </div>
 
-          {location && (locationPrimary || location.latitude) && (
+          {location && addressLine && (
             <div className={isPanel ? "rd-loc" : "rounded-xl border border-surface-border bg-surface px-3 py-3"}>
               <div className={isPanel ? "pinico" : ""}>
                 <MapPin
@@ -232,17 +255,23 @@ export default function ReportDetailContent({
                 />
               </div>
               <div className="min-w-0 flex-1">
-                {locationPrimary && (
-                  <p className={isPanel ? "" : "text-sm font-medium text-white"}>
-                    <b>{locationPrimary}</b>
+                {isPanel && (
+                  <p className="rd-loc__label">{t("reportDetail.location")}</p>
+                )}
+                {buildingName && (
+                  <p className={isPanel ? "rd-loc__building" : "text-sm font-semibold text-white"}>
+                    {buildingName}
                   </p>
                 )}
-                {locationSecondary && (
-                  <p className={isPanel ? "sub" : "text-xs text-slate-400"}>
-                    {locationSecondary}
+                <p className={isPanel ? "rd-loc__address" : "text-sm font-medium leading-snug text-white"}>
+                  {addressLine}
+                </p>
+                {showStoredFallback && storedAddress && (
+                  <p className={isPanel ? "sub" : "mt-1 text-xs text-slate-400"}>
+                    {storedAddress}
                   </p>
                 )}
-                <p className={isPanel ? "coords" : "text-xs text-slate-500"}>
+                <p className={isPanel ? "coords" : "mt-1.5 text-xs text-slate-500"}>
                   {formatCoordinates(location.latitude, location.longitude)}
                 </p>
                 {location.what3words && (

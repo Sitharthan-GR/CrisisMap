@@ -41,3 +41,20 @@ export function briefLocationFromAdmin(location?: {
   if (parts.length === 0) return null;
   return shortAddress(parts.join(", "), 2);
 }
+
+/** Full admin hierarchy for detail views (city, region, country). */
+export function formatStoredAddress(location?: {
+  admin_level_1?: string | null;
+  admin_level_2?: string | null;
+  admin_level_3?: string | null;
+} | null): string | null {
+  if (!location) return null;
+
+  const parts = [
+    location.admin_level_3,
+    location.admin_level_2,
+    location.admin_level_1,
+  ].filter((part): part is string => Boolean(part?.trim()));
+
+  return parts.length > 0 ? parts.join(", ") : null;
+}
