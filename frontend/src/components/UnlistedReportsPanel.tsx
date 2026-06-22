@@ -625,6 +625,7 @@ export default function UnlistedReportsPanel({
       <AdminReportDetailPanel
         reportId={selectedReportId}
         open={Boolean(selectedReportId)}
+        crises={crises}
         onClose={closeReportDetail}
         onAssign={(anchor) => {
           if (selectedReportId) {

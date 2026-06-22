@@ -3,7 +3,7 @@ import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
 import type { MapViewport } from "../types/crisis";
-import type { MapReportPin } from "../types/report";
+import type { MapReportPin, Crisis } from "../types/report";
 import type { PickedMapLocation } from "../types/location";
 import { damageLevelColor } from "../lib/severity";
 import { basemapUrlForTheme, useTheme } from "../lib/theme";
@@ -15,7 +15,7 @@ interface CrisisMapProps {
   viewport: MapViewport;
   reports: MapReportPin[];
   selectedReportId?: string;
-  crisisName?: string;
+  crises?: Crisis[];
   mapFocusKey?: string;
   fitReports?: MapReportPin[];
   fitMaxZoom?: number;
@@ -209,40 +209,6 @@ function BasemapTileLayer() {
   );
 }
 
-function MapRecenter({
-  center,
-  focusKey,
-}: {
-  center: [number, number];
-  focusKey?: string;
-}) {
-  const map = useMap();
-  const prevFocusKey = useRef<string | undefined>(undefined);
-  const prevCenter = useRef(center);
-
-  useEffect(() => {
-    const focusChanged =
-      focusKey !== undefined && focusKey !== prevFocusKey.current;
-    prevFocusKey.current = focusKey;
-
-    if (focusChanged) {
-      prevCenter.current = center;
-      return;
-    }
-
-    const centerChanged =
-      center[0] !== prevCenter.current[0] ||
-      center[1] !== prevCenter.current[1];
-    prevCenter.current = center;
-
-    if (centerChanged) {
-      map.setView(center, map.getZoom(), { animate: true });
-    }
-  }, [center, focusKey, map]);
-
-  return null;
-}
-
 function MapFitToReports({
   reports,
   focusKey,
@@ -257,42 +223,49 @@ function MapFitToReports({
   fitMaxZoom?: number;
 }) {
   const map = useMap();
-  const lastFitKey = useRef<string | undefined>(undefined);
+  const lastFitSignature = useRef<string | undefined>(undefined);
   const prevFocusKey = useRef<string | undefined>(undefined);
 
   useEffect(() => {
     if (focusKey !== prevFocusKey.current) {
       prevFocusKey.current = focusKey;
-      lastFitKey.current = undefined;
+      lastFitSignature.current = undefined;
     }
 
-    if (!focusKey || loading) return;
-    if (lastFitKey.current === focusKey) return;
-    lastFitKey.current = focusKey;
-
-    if (reports.length === 0) {
-      map.flyTo(fallbackCenter, 11, { animate: true, duration: 0.55 });
+    if (!focusKey || loading) {
+      lastFitSignature.current = undefined;
       return;
     }
 
-    if (reports.length === 1) {
-      map.flyTo(
-        [reports[0].latitude, reports[0].longitude],
-        14,
-        { animate: true, duration: 0.55 },
+    const fitSignature = `${focusKey}:${reports.length}`;
+    if (lastFitSignature.current === fitSignature) return;
+    lastFitSignature.current = fitSignature;
+
+    const frame = requestAnimationFrame(() => {
+      map.invalidateSize();
+
+      if (reports.length === 0) {
+        map.flyTo(fallbackCenter, Math.min(11, fitMaxZoom), {
+          animate: true,
+          duration: 0.55,
+        });
+        return;
+      }
+
+      const bounds = L.latLngBounds(
+        reports.map(
+          (report) => [report.latitude, report.longitude] as [number, number],
+        ),
       );
-      return;
-    }
-
-    const bounds = L.latLngBounds(
-      reports.map((report) => [report.latitude, report.longitude] as [number, number]),
-    );
-    map.flyToBounds(bounds, {
-      padding: [52, 52],
-      maxZoom: fitMaxZoom,
-      animate: true,
-      duration: 0.55,
+      map.flyToBounds(bounds, {
+        padding: [52, 52],
+        maxZoom: fitMaxZoom,
+        animate: true,
+        duration: 0.55,
+      });
     });
+
+    return () => cancelAnimationFrame(frame);
   }, [reports, focusKey, loading, fallbackCenter, fitMaxZoom, map]);
 
   return null;
@@ -337,7 +310,7 @@ export default function CrisisMap({
   viewport,
   reports,
   selectedReportId,
-  crisisName,
+  crises,
   mapFocusKey,
   fitReports,
   fitMaxZoom,
@@ -373,7 +346,6 @@ export default function CrisisMap({
       >
         <BasemapTileLayer />
         <MapGlobeViewport layoutKey={layoutKey} />
-        <MapRecenter center={center} focusKey={mapFocusKey} />
         <MapFitToReports
           reports={fitReports ?? reports}
           focusKey={mapFocusKey}
@@ -445,7 +417,7 @@ export default function CrisisMap({
       {selectedReportId && onClearReport && (
         <ReportMapOverlay
           reportId={selectedReportId}
-          crisisName={crisisName}
+          crises={crises}
           onClose={onClearReport}
           onSelectVersion={onSelectReportVersion}
           onReportDeleted={onReportDeleted}

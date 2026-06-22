@@ -9,11 +9,6 @@ interface ReportVersionHistoryProps {
   compact?: boolean;
 }
 
-function formatReportRef(id: string): string {
-  const compact = id.replace(/-/g, "").slice(-5).toUpperCase();
-  return `RPT-${compact}`;
-}
-
 function formatHistoryDate(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
     month: "short",
@@ -93,7 +88,9 @@ export default function ReportVersionHistory({
                 <p className="mt-0.5 text-slate-500">
                   {formatHistoryDate(version.submitted_at)}
                   {" · "}
-                  {formatReportRef(version.id)}
+                  {t("reportDetail.versionNumber", {
+                    number: version.version_number,
+                  })}
                 </p>
                 {isActive && (
                   <p className="mt-0.5 text-[10px] font-medium uppercase tracking-wide text-accent">

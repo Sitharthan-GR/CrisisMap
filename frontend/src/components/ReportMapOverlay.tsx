@@ -4,11 +4,12 @@ import { useTranslation } from "react-i18next";
 import { ApiError, adminDeleteReport } from "../api/client";
 import { getAdminToken, isAdminAuthenticated } from "../lib/adminAuth";
 import { shareReportLink } from "../lib/reportShare";
+import type { Crisis } from "../types/report";
 import ReportDetailContent from "./ReportDetailContent";
 
 interface ReportMapOverlayProps {
   reportId: string;
-  crisisName?: string;
+  crises?: Crisis[];
   onClose: () => void;
   onSelectVersion?: (reportId: string) => void;
   onReportDeleted?: () => void;
@@ -16,7 +17,7 @@ interface ReportMapOverlayProps {
 
 export default function ReportMapOverlay({
   reportId,
-  crisisName,
+  crises,
   onClose,
   onSelectVersion,
   onReportDeleted,
@@ -110,7 +111,7 @@ export default function ReportMapOverlay({
       <div className="rd-body">
         <ReportDetailContent
           reportId={reportId}
-          crisisName={crisisName}
+          crises={crises}
           variant="panel"
           onSelectVersion={onSelectVersion}
         />

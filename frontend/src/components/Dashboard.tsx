@@ -579,6 +579,8 @@ export default function Dashboard() {
     centeredCrisisRef.current = null;
     setSelectedCrisisId(crisisId);
     setSelectedReport(null);
+    setLoading(true);
+    setAllReports([]);
     navigate("/", { replace: true });
   };
 
@@ -693,9 +695,7 @@ export default function Dashboard() {
             reports={filteredReports}
             fitReports={allReports}
             selectedReportId={selectedReport?.id}
-            crisisName={
-              isAllCrisesMode ? t("dashboard.allCrises") : selectedCrisis?.name
-            }
+            crises={crisisEvents}
             mapFocusKey={selectedCrisisId}
             fitMaxZoom={isAllCrisesMode ? 5 : 13}
             showSearchRadius={!isAllCrisesMode}

@@ -1,11 +1,13 @@
 import { Link2, Plus, Trash2 } from "lucide-react";
 import { useEffect } from "react";
 import { useTranslation } from "react-i18next";
+import type { Crisis } from "../types/report";
 import ReportDetailContent from "./ReportDetailContent";
 
 interface AdminReportDetailPanelProps {
   reportId: string | null;
   open: boolean;
+  crises?: Crisis[];
   onClose: () => void;
   onAssign: (anchor: HTMLElement) => void;
   onCreateCrisis: () => void;
@@ -17,6 +19,7 @@ interface AdminReportDetailPanelProps {
 export default function AdminReportDetailPanel({
   reportId,
   open,
+  crises,
   onClose,
   onAssign,
   onCreateCrisis,
@@ -70,7 +73,7 @@ export default function AdminReportDetailPanel({
 
         <div className="admin-panel-body admin-report-panel-body">
           {reportId ? (
-            <ReportDetailContent reportId={reportId} variant="panel" />
+            <ReportDetailContent reportId={reportId} crises={crises} variant="panel" />
           ) : null}
         </div>
 

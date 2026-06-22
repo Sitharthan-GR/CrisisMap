@@ -9,21 +9,17 @@ import {
   damageLevelLabel,
   infraTypeLabel,
 } from "../lib/severity";
-import type { ReportDetail, ReportLocation, ReportVersion } from "../types/report";
+import type { ReportDetail, ReportLocation, ReportVersion, Crisis } from "../types/report";
 
 interface ReportDetailContentProps {
   reportId: string;
+  crises?: Crisis[];
   crisisName?: string;
   variant?: "popup" | "panel";
   onSelectVersion?: (reportId: string) => void;
 }
 
 type DetailTab = "info" | "photos" | "history";
-
-function formatReportRef(id: string): string {
-  const compact = id.replace(/-/g, "").slice(-5).toUpperCase();
-  return `RPT-${compact}`;
-}
 
 function formatSubmittedAt(iso: string): string {
   return new Date(iso).toLocaleString(undefined, {
@@ -67,6 +63,7 @@ function photoUrl(photo: ReportDetail["photos"][number]): string | null {
 
 export default function ReportDetailContent({
   reportId,
+  crises,
   crisisName,
   variant = "popup",
   onSelectVersion,
@@ -163,8 +160,11 @@ export default function ReportDetailContent({
   const isPopup = variant === "popup";
   const isPanel = variant === "panel";
 
+  const reportCrisisName =
+    crises?.find((crisis) => crisis.id === detail.crisis_id)?.name ?? crisisName;
+
   const metaParts = [
-    formatReportRef(detail.id),
+    reportCrisisName,
     infraTypeLabel(detail.infra_type, detail.infra_subtype),
     natureLabel,
   ].filter(Boolean);
@@ -221,11 +221,6 @@ export default function ReportDetailContent({
             <p className={isPanel ? "rd-sub" : "mt-1 text-xs text-slate-400"}>
               {metaParts.join(" · ")}
             </p>
-            {crisisName && (
-              <p className={isPanel ? "rd-crisis" : "mt-0.5 text-xs text-slate-500"}>
-                {crisisName}
-              </p>
-            )}
           </div>
 
           {location && (locationPrimary || location.latitude) && (
@@ -267,15 +262,6 @@ export default function ReportDetailContent({
                 </span>
               </InfoCell>
             )}
-            <InfoCell
-              label={t("reportDetail.reporter")}
-              panel={isPanel}
-              fullWidth={isPanel}
-            >
-              {detail.reporter_name && detail.reporter_name !== "anonymous"
-                ? detail.reporter_name
-                : t("reportDetail.anonymous")}
-            </InfoCell>
             <InfoCell label={t("reportDetail.debris")} panel={isPanel}>
               <span className={detail.debris_present ? "warn" : undefined}>
                 {detail.debris_present
@@ -287,7 +273,7 @@ export default function ReportDetailContent({
               {formatSubmittedAt(detail.submitted_at)}
             </InfoCell>
             {!isPanel && (
-              <InfoCell label={t("reportDetail.description")} panel={false}>
+              <InfoCell label={t("reportDetail.description")} panel={false} colSpan={2}>
                 <span
                   className={`line-clamp-2 ${
                     description ? "text-slate-200" : "text-slate-500"
@@ -297,6 +283,16 @@ export default function ReportDetailContent({
                 </span>
               </InfoCell>
             )}
+            <InfoCell
+              label={t("reportDetail.reporter")}
+              panel={isPanel}
+              fullWidth={isPanel}
+              colSpan={isPanel ? undefined : 2}
+            >
+              {detail.reporter_name && detail.reporter_name !== "anonymous"
+                ? detail.reporter_name
+                : t("reportDetail.anonymous")}
+            </InfoCell>
           </div>
 
           <ReportVersionHistory
@@ -341,11 +337,13 @@ function InfoCell({
   children,
   panel = false,
   fullWidth = false,
+  colSpan,
 }: {
   label: string;
   children: React.ReactNode;
   panel?: boolean;
   fullWidth?: boolean;
+  colSpan?: number;
 }) {
   if (panel) {
     return (
@@ -357,7 +355,11 @@ function InfoCell({
   }
 
   return (
-    <div className="rounded-xl border border-surface-border bg-surface px-3 py-2.5">
+    <div
+      className={`rounded-xl border border-surface-border bg-surface px-3 py-2.5${
+        colSpan === 2 ? " col-span-2" : ""
+      }`}
+    >
       <p className="text-[10px] font-semibold uppercase tracking-wider text-slate-500">
         {label}
       </p>
