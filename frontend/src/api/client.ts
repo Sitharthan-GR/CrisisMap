@@ -430,6 +430,44 @@ export async function fetchCrisisMap(
   return parseApiResponse<MapFeatureCollection>(response);
 }
 
+export async function fetchAllCrisesMap(
+  crises: Crisis[],
+  options?: { status?: "validated" | "all" },
+  signal?: AbortSignal,
+): Promise<MapFeatureCollection> {
+  if (crises.length === 0) {
+    return { type: "FeatureCollection", features: [], total: 0 };
+  }
+
+  const collections = await Promise.all(
+    crises.map((crisis) =>
+      fetchCrisisMap(crisis.id, options, signal).catch(
+        (): MapFeatureCollection => ({
+          type: "FeatureCollection",
+          features: [],
+          total: 0,
+        }),
+      ),
+    ),
+  );
+
+  const seen = new Set<string>();
+  const features = collections.flatMap((collection) => collection.features).filter(
+    (feature) => {
+      const reportId = feature.properties.report_id;
+      if (seen.has(reportId)) return false;
+      seen.add(reportId);
+      return true;
+    },
+  );
+
+  return {
+    type: "FeatureCollection",
+    features,
+    total: features.length,
+  };
+}
+
 export async function createReport(
   payload: ReportCreateInput,
   signal?: AbortSignal,

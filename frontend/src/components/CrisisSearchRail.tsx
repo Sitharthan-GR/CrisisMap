@@ -10,6 +10,7 @@ import { useTranslation } from "react-i18next";
 import type { PlaceSearchResult } from "../api/client";
 import type { PickedMapLocation } from "../types/location";
 import type { Crisis } from "../types/report";
+import { ALL_CRISES_ID } from "../lib/constants";
 import {
   displayValueToMeters,
   formatRadiusLabel,
@@ -24,6 +25,7 @@ interface CrisisSearchRailProps {
   crisisEvents: Crisis[];
   selectedCrisisId: string;
   selectedCrisis?: Crisis;
+  nearestCrisisId?: string | null;
   loading: boolean;
   radiusMeters: number;
   distanceSystem: DistanceSystem;
@@ -51,6 +53,7 @@ export default function CrisisSearchRail({
   crisisEvents,
   selectedCrisisId,
   selectedCrisis,
+  nearestCrisisId,
   loading,
   radiusMeters,
   distanceSystem,
@@ -90,10 +93,13 @@ export default function CrisisSearchRail({
     selectedCrisis?.name ||
     t("dashboard.areaDefaultPlace");
 
-  const areaTitle = t("dashboard.areaWithin", {
-    distance: formatRadiusLabel(radiusMeters, distanceSystem),
-    place: placeName,
-  });
+  const areaTitle =
+    selectedCrisisId === ALL_CRISES_ID
+      ? t("dashboard.allCrisesView", { count: reportsInRangeCount })
+      : t("dashboard.areaWithin", {
+          distance: formatRadiusLabel(radiusMeters, distanceSystem),
+          place: placeName,
+        });
 
   const sourceKey = pickedLocation?.source ?? "default";
   const areaSubKey =
@@ -103,7 +109,10 @@ export default function CrisisSearchRail({
     sourceKey === "building"
       ? `dashboard.areaSub_${sourceKey}`
       : "dashboard.areaSubDefault";
-  const areaSub = t(areaSubKey, { count: reportsInRangeCount });
+  const areaSub =
+    selectedCrisisId === ALL_CRISES_ID
+      ? t("dashboard.allCrisesAreaSub", { count: reportsInRangeCount })
+      : t(areaSubKey, { count: reportsInRangeCount });
 
   const resetAreaDraft = () => {
     setDraftRadius(metersToDisplayValue(radiusMeters, distanceSystem));
@@ -125,18 +134,39 @@ export default function CrisisSearchRail({
 
       <div className="card">
         <div className="ct">{t("dashboard.activeCrisis")}</div>
-        {crisisEvents.length > 0 && selectedCrisis ? (
+        {crisisEvents.length > 0 ? (
           <>
             <div className="crisis-row">
               <span className="cico">
                 <FlaskConical strokeWidth={2} />
               </span>
               <div>
-                <div className="crisis-name">{selectedCrisis.name}</div>
-                <div className="crisis-meta">
-                  {selectedCrisis.crisis_subtype} ·{" "}
-                  {new Date(selectedCrisis.onset_at).toLocaleDateString()}
-                </div>
+                {selectedCrisisId === ALL_CRISES_ID ? (
+                  <>
+                    <div className="crisis-name">{t("dashboard.allCrises")}</div>
+                    <div className="crisis-meta">
+                      {t("dashboard.allCrisesMeta", { count: crisisEvents.length })}
+                    </div>
+                  </>
+                ) : selectedCrisis ? (
+                  <>
+                    <div className="crisis-name">
+                      {selectedCrisis.name}
+                      {nearestCrisisId === selectedCrisis.id
+                        ? ` (${t("wizard.nearestCrisis")})`
+                        : ""}
+                    </div>
+                    <div className="crisis-meta">
+                      {selectedCrisis.crisis_subtype} ·{" "}
+                      {new Date(selectedCrisis.onset_at).toLocaleDateString()}
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="crisis-name">{t("dashboard.selectCrisis")}</div>
+                    <div className="crisis-meta">{t("dashboard.selectCrisisHint")}</div>
+                  </>
+                )}
               </div>
             </div>
             <select
@@ -145,9 +175,13 @@ export default function CrisisSearchRail({
               disabled={loading}
               onChange={(e) => onCrisisChange(e.target.value)}
             >
+              <option value={ALL_CRISES_ID}>{t("dashboard.allCrises")}</option>
               {crisisEvents.map((crisis) => (
                 <option key={crisis.id} value={crisis.id}>
                   {crisis.name}
+                  {nearestCrisisId === crisis.id
+                    ? ` (${t("wizard.nearestCrisis")})`
+                    : ""}
                 </option>
               ))}
             </select>

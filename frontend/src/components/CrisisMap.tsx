@@ -18,6 +18,8 @@ interface CrisisMapProps {
   crisisName?: string;
   mapFocusKey?: string;
   fitReports?: MapReportPin[];
+  fitMaxZoom?: number;
+  showSearchRadius?: boolean;
   loading?: boolean;
   loadingLabel?: string;
   layoutKey?: string;
@@ -246,11 +248,13 @@ function MapFitToReports({
   focusKey,
   loading,
   fallbackCenter,
+  fitMaxZoom = 13,
 }: {
   reports: MapReportPin[];
   focusKey?: string;
   loading?: boolean;
   fallbackCenter: [number, number];
+  fitMaxZoom?: number;
 }) {
   const map = useMap();
   const lastFitKey = useRef<string | undefined>(undefined);
@@ -285,11 +289,11 @@ function MapFitToReports({
     );
     map.flyToBounds(bounds, {
       padding: [52, 52],
-      maxZoom: 13,
+      maxZoom: fitMaxZoom,
       animate: true,
       duration: 0.55,
     });
-  }, [reports, focusKey, loading, fallbackCenter, map]);
+  }, [reports, focusKey, loading, fallbackCenter, fitMaxZoom, map]);
 
   return null;
 }
@@ -336,6 +340,8 @@ export default function CrisisMap({
   crisisName,
   mapFocusKey,
   fitReports,
+  fitMaxZoom,
+  showSearchRadius = true,
   loading = false,
   loadingLabel = "Loading…",
   layoutKey,
@@ -373,6 +379,7 @@ export default function CrisisMap({
           focusKey={mapFocusKey}
           loading={loading}
           fallbackCenter={center}
+          fitMaxZoom={fitMaxZoom}
         />
         <MapPanToReport reports={reports} selectedReportId={selectedReportId} />
         <MapPinDropHandler active={pinDropActive} onPick={onMapPick} />
@@ -381,17 +388,19 @@ export default function CrisisMap({
           selectedBuildingId={pickedLocation?.buildingFootprintId ?? null}
           onBuildingPick={onBuildingPick}
         />
-        <Circle
-          center={center}
-          radius={viewport.radiusMeters}
-          pathOptions={{
-            color: "var(--accent)",
-            fillColor: "var(--accent)",
-            fillOpacity: 0.08,
-            weight: 2,
-            dashArray: "6 8",
-          }}
-        />
+        {showSearchRadius && (
+          <Circle
+            center={center}
+            radius={viewport.radiusMeters}
+            pathOptions={{
+              color: "var(--accent)",
+              fillColor: "var(--accent)",
+              fillOpacity: 0.08,
+              weight: 2,
+              dashArray: "6 8",
+            }}
+          />
+        )}
 
         {pickedLocation && (
           <Marker

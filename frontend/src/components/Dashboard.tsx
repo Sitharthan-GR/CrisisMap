@@ -5,6 +5,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import {
   ApiError,
   fetchActiveCrises,
+  fetchAllCrisesMap,
   fetchCrisisMap,
   fetchReportDetail,
   fetchReverseGeocode,
@@ -14,6 +15,7 @@ import {
 } from "../api/client";
 import { autoDetectLanguageFromLocation, tryInitialLocationLanguage } from "../i18n";
 import {
+  ALL_CRISES_ID,
   DEFAULT_CENTER,
   DEFAULT_RADIUS_METERS,
 } from "../lib/constants";
@@ -109,15 +111,24 @@ export default function Dashboard() {
   const sharedReportIdRef = useRef(sharedReportId);
   sharedReportIdRef.current = sharedReportId;
 
+  const isAllCrisesMode = selectedCrisisId === ALL_CRISES_ID;
+
+  const nearestCrisisId = useMemo(
+    () => findNearestCrisisId(crisisEvents, viewport.lat, viewport.lng),
+    [crisisEvents, viewport.lat, viewport.lng],
+  );
+
   const reportsInRange = useMemo(
-    () =>
-      filterReportsInRadius(
+    () => {
+      if (isAllCrisesMode) return allReports;
+      return filterReportsInRadius(
         allReports,
         viewport.lat,
         viewport.lng,
         viewport.radiusMeters,
-      ),
-    [allReports, viewport],
+      );
+    },
+    [allReports, viewport, isAllCrisesMode],
   );
 
   const filteredReports = useMemo(
@@ -178,7 +189,10 @@ export default function Dashboard() {
       setError(null);
 
       try {
-        const mapData = await fetchCrisisMap(crisisId, { status: "all" });
+        const mapData =
+          crisisId === ALL_CRISES_ID
+            ? await fetchAllCrisesMap(crisisEvents, { status: "all" })
+            : await fetchCrisisMap(crisisId, { status: "all" });
         if (generation !== mapFetchGenerationRef.current) return;
         setError(null);
         setAllReports(mapFeaturesToPins(mapData.features));
@@ -194,7 +208,7 @@ export default function Dashboard() {
         }
       }
     },
-    [t],
+    [crisisEvents, t],
   );
 
   useEffect(() => {
@@ -213,22 +227,17 @@ export default function Dashboard() {
           return;
         }
 
-        const pickFromCoords = (lat: number, lng: number) => {
-          setSelectedCrisisId(
-            (current) =>
-              current ||
-              findNearestCrisisId(crises, lat, lng) ||
-              crises[0].id,
-          );
+        const pickInitialCrisis = () => {
+          setSelectedCrisisId((current) => current || ALL_CRISES_ID);
         };
 
         void resolveApproxUserLocation({
           latitude: DEFAULT_CENTER.lat,
           longitude: DEFAULT_CENTER.lng,
-        }).then((resolved) => {
+        }).then(() => {
           if (controller.signal.aborted) return;
           if (sharedReportIdRef.current) return;
-          pickFromCoords(resolved.latitude, resolved.longitude);
+          pickInitialCrisis();
         });
       })
       .catch((err) => {
@@ -260,7 +269,7 @@ export default function Dashboard() {
         centeredCrisisRef.current = null;
         sharedReportTargetRef.current = detail;
 
-        if (detail.crisis_id === selectedCrisisId) {
+        if (detail.crisis_id === selectedCrisisId || selectedCrisisId === ALL_CRISES_ID) {
           const pin =
             allReports.find((report) => report.id === detail.id) ??
             reportDetailToPin(detail);
@@ -313,7 +322,12 @@ export default function Dashboard() {
     setError(null);
     setAllReports([]);
 
-    fetchCrisisMap(crisisId, { status: "all" }, controller.signal)
+    const fetchMap =
+      crisisId === ALL_CRISES_ID
+        ? fetchAllCrisesMap(crisisEvents, { status: "all" }, controller.signal)
+        : fetchCrisisMap(crisisId, { status: "all" }, controller.signal);
+
+    fetchMap
       .then((mapData) => {
         if (generation !== mapFetchGenerationRef.current) return;
         setError(null);
@@ -333,11 +347,15 @@ export default function Dashboard() {
       });
 
     return () => controller.abort();
-  }, [selectedCrisisId, t]);
+  }, [selectedCrisisId, crisisEvents, t]);
 
   useEffect(() => {
     const sharedDetail = sharedReportTargetRef.current;
-    if (!sharedDetail || loading || selectedCrisisId !== sharedDetail.crisis_id) {
+    if (!sharedDetail || loading) return;
+    if (
+      selectedCrisisId !== ALL_CRISES_ID &&
+      selectedCrisisId !== sharedDetail.crisis_id
+    ) {
       return;
     }
 
@@ -361,7 +379,7 @@ export default function Dashboard() {
   }, [allReports, loading, selectedCrisisId, isMobile, setMobilePanel]);
 
   useEffect(() => {
-    if (!selectedCrisisId || loading) return;
+    if (!selectedCrisisId || loading || isAllCrisesMode) return;
     if (centeredCrisisRef.current === selectedCrisisId) return;
 
     const crisis = crisisEvents.find((c) => c.id === selectedCrisisId);
@@ -386,7 +404,7 @@ export default function Dashboard() {
 
     centeredCrisisRef.current = selectedCrisisId;
     setViewport((v) => ({ ...v, lat, lng, radiusMeters }));
-  }, [selectedCrisisId, crisisEvents, allReports, loading]);
+  }, [selectedCrisisId, crisisEvents, allReports, loading, isAllCrisesMode]);
 
   const handleLocate = async () => {
     setLocating(true);
@@ -608,7 +626,10 @@ export default function Dashboard() {
           longitude: pickedLocation.lng,
           placeLabel: pickedLocation.label,
           locationMethod: "manual" as const,
-          crisisId: selectedCrisisId || undefined,
+          crisisId:
+            selectedCrisisId && selectedCrisisId !== ALL_CRISES_ID
+              ? selectedCrisisId
+              : nearestCrisisId || undefined,
           buildingFootprintId: pickedLocation.buildingFootprintId,
         },
       },
@@ -624,7 +645,9 @@ export default function Dashboard() {
 
   const mapChipLabel = loading
     ? t("dashboard.loadingReports")
-    : t("dashboard.mapReportsEpicenter", { count: filteredReports.length });
+    : isAllCrisesMode
+      ? t("dashboard.mapReportsAllCrises", { count: filteredReports.length })
+      : t("dashboard.mapReportsEpicenter", { count: filteredReports.length });
 
   return (
     <div className={`dashboard-app${pinDropMode ? " pin-drop-focus" : ""}`}>
@@ -639,6 +662,7 @@ export default function Dashboard() {
           crisisEvents={crisisEvents}
           selectedCrisisId={selectedCrisisId}
           selectedCrisis={selectedCrisis}
+          nearestCrisisId={nearestCrisisId}
           loading={loading}
           radiusMeters={viewport.radiusMeters}
           distanceSystem={distanceSystem}
@@ -669,13 +693,19 @@ export default function Dashboard() {
             reports={filteredReports}
             fitReports={allReports}
             selectedReportId={selectedReport?.id}
-            crisisName={selectedCrisis?.name}
+            crisisName={
+              isAllCrisesMode ? t("dashboard.allCrises") : selectedCrisis?.name
+            }
             mapFocusKey={selectedCrisisId}
+            fitMaxZoom={isAllCrisesMode ? 5 : 13}
+            showSearchRadius={!isAllCrisesMode}
             loading={loading}
             loadingLabel={
-              selectedCrisis?.name
-                ? t("dashboard.loadingReportsFor", { crisis: selectedCrisis.name })
-                : t("dashboard.loadingReports")
+              isAllCrisesMode
+                ? t("dashboard.loadingAllCrises")
+                : selectedCrisis?.name
+                  ? t("dashboard.loadingReportsFor", { crisis: selectedCrisis.name })
+                  : t("dashboard.loadingReports")
             }
             layoutKey={`${railPanelOpen}-${feedPanelOpen}-${pinDropMode}`}
             pinDropActive={pinDropMode}

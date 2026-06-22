@@ -6,6 +6,9 @@ export const DEFAULT_CENTER = {
 
 export const DEFAULT_RADIUS_METERS = 10_000;
 
+/** Sentinel value for the dashboard crisis selector (not a real crisis UUID). */
+export const ALL_CRISES_ID = "__all__";
+
 export const RADIUS_OPTIONS = [
   { label: "5 km", value: 5_000 },
   { label: "10 km", value: 10_000 },
