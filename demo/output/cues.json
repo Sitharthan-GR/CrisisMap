@@ -1,0 +1,42 @@
+[
+  {
+    "id": "intro",
+    "text": "CrisisMap helps humanitarian teams capture, store, and export damage assessments for crisis response.",
+    "at_ms": 0
+  },
+  {
+    "id": "admin-login",
+    "text": "Admins authenticate securely to manage crises and protect sensitive assessment data.",
+    "at_ms": 5769
+  },
+  {
+    "id": "create-crisis",
+    "text": "Create an active crisis with location and form templates so field teams know what to document.",
+    "at_ms": 11133
+  },
+  {
+    "id": "user-report",
+    "text": "Field users capture structured damage information — severity, building type, location, and photos — without an account.",
+    "at_ms": 26381
+  },
+  {
+    "id": "dashboard",
+    "text": "Validated reports appear on the live crisis map for real-time situational awareness.",
+    "at_ms": 46570
+  },
+  {
+    "id": "history",
+    "text": "Repeat assessments at the same building are versioned, tracking how damage changes over time.",
+    "at_ms": 54903
+  },
+  {
+    "id": "export",
+    "text": "UNDP and humanitarian partners export structured data as CSV, GeoJSON, or Shapefile for coordination and analysis.",
+    "at_ms": 62472
+  },
+  {
+    "id": "offline",
+    "text": "Without connectivity, reports save privately on the device and sync automatically once back online.",
+    "at_ms": 74189
+  }
+]
