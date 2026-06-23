@@ -32,6 +32,8 @@ interface ReportLocationPickerProps {
   onMapPick: (lat: number, lng: number) => void;
   onUseGps: () => void;
   isOffline?: boolean;
+  resolvingAddress?: boolean;
+  addressLookupFailed?: boolean;
 }
 
 function createPinIcon() {
@@ -103,6 +105,8 @@ export default function ReportLocationPicker({
   onMapPick,
   onUseGps,
   isOffline = false,
+  resolvingAddress = false,
+  addressLookupFailed = false,
 }: ReportLocationPickerProps) {
   const { t } = useTranslation();
   const searchRef = useRef<HTMLInputElement>(null);
@@ -115,14 +119,19 @@ export default function ReportLocationPicker({
   const genericLocationLabel = t("wizard.currentLocation");
   const hasAddress =
     Boolean(placeLabel) && placeLabel !== genericLocationLabel;
-  const addressLine = hasAddress ? shortAddress(placeLabel) : "";
 
   const locationTitle =
     locationStatus === "detecting"
       ? t("wizard.detecting")
-      : hasAddress
-        ? addressLine
-        : genericLocationLabel;
+      : resolvingAddress
+        ? t("wizard.resolvingAddress")
+        : addressLookupFailed && hasCoords && !hasAddress
+          ? t("wizard.addressLookupFailed")
+      : !hasCoords
+        ? t("wizard.locationUnknown")
+        : hasAddress
+          ? placeLabel
+          : genericLocationLabel;
 
   const handleGps = () => {
     setMode("gps");
@@ -280,20 +289,18 @@ export default function ReportLocationPicker({
             <div className="flex min-w-0 items-start gap-2">
               <Crosshair className="mt-0.5 h-4 w-4 shrink-0 text-ink-faint" />
               <div className="min-w-0">
-                <p className="truncate text-sm font-medium text-ink">
+                <p
+                  className="text-sm font-medium leading-snug text-ink break-words"
+                  title={hasAddress ? placeLabel : undefined}
+                >
                   {hasCoords ? locationTitle : t("wizard.locationUnknown")}
                 </p>
-                {hasCoords && hasAddress && placeLabel !== addressLine && (
-                  <p
-                    className="mt-0.5 line-clamp-2 text-xs text-ink-dim"
-                    title={placeLabel}
-                  >
-                    {placeLabel}
-                  </p>
-                )}
                 {hasCoords && (
-                  <p className="mt-0.5 font-mono text-xs text-ink-faint">
-                    {Number(latitude).toFixed(4)}, {Number(longitude).toFixed(4)}
+                  <p className="mt-1 font-mono text-xs text-ink-faint">
+                    {t("locationPicker.coordinates", {
+                      lat: Number(latitude).toFixed(6),
+                      lng: Number(longitude).toFixed(6),
+                    })}
                   </p>
                 )}
                 {isOffline && hasCoords && (

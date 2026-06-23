@@ -8,6 +8,7 @@ import {
   type PlaceSearchResult,
 } from "../api/client";
 import { getAdminToken } from "../lib/adminAuth";
+import { resolveGeocodeLabel } from "../lib/address";
 import { getCurrentLocation } from "../lib/geolocation";
 import type { FormTemplate } from "../types/formTemplate";
 import type { Crisis, CrisisType, ReportDetail } from "../types/report";
@@ -76,7 +77,39 @@ export default function AdminCrisisPanel({
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([]);
   const [formTemplateId, setFormTemplateId] = useState<string | null>(null);
+  const [addressResolving, setAddressResolving] = useState(false);
+  const [addressLookupFailed, setAddressLookupFailed] = useState(false);
   const gpsAttemptedRef = useRef(false);
+  const geocodeAttemptedKeyRef = useRef("");
+
+  const coordsKey = (lat: number, lng: number) =>
+    `${lat.toFixed(6)},${lng.toFixed(6)}`;
+
+  const resolveAddressForCoords = useCallback(
+    async (lat: number, lng: number, signal?: AbortSignal) => {
+      const key = coordsKey(lat, lng);
+      if (geocodeAttemptedKeyRef.current === key) return;
+
+      geocodeAttemptedKeyRef.current = key;
+      setAddressResolving(true);
+      setAddressLookupFailed(false);
+      try {
+        const geo = await fetchReverseGeocode(lat, lng, signal);
+        const label = resolveGeocodeLabel(geo, "");
+        if (label) {
+          setPlaceLabel(label);
+          setAddressQuery(label);
+        } else {
+          setAddressLookupFailed(true);
+        }
+      } catch {
+        setAddressLookupFailed(true);
+      } finally {
+        setAddressResolving(false);
+      }
+    },
+    [],
+  );
 
   const resetLocation = useCallback(() => {
     setLatitude("");
@@ -85,6 +118,8 @@ export default function AdminCrisisPanel({
     setLocationStatus("idle");
     setAddressQuery("");
     setPlaceResults([]);
+    setAddressLookupFailed(false);
+    geocodeAttemptedKeyRef.current = "";
     gpsAttemptedRef.current = false;
   }, []);
 
@@ -95,18 +130,13 @@ export default function AdminCrisisPanel({
       setLatitude(coords.latitude.toFixed(6));
       setLongitude(coords.longitude.toFixed(6));
       setLocationStatus("detected");
-      try {
-        const geo = await fetchReverseGeocode(coords.latitude, coords.longitude);
-        setPlaceLabel(geo.display_name ?? "");
-        setAddressQuery(geo.display_name ?? "");
-      } catch {
-        setPlaceLabel("");
-      }
+      geocodeAttemptedKeyRef.current = "";
+      await resolveAddressForCoords(coords.latitude, coords.longitude);
     } catch {
       setLocationStatus("failed");
       setPlaceLabel("");
     }
-  }, []);
+  }, [resolveAddressForCoords]);
 
   useEffect(() => {
     if (!open) return;
@@ -132,6 +162,11 @@ export default function AdminCrisisPanel({
         setLatitude(String(lat));
         setLongitude(String(lng));
         setLocationStatus("detected");
+        setPlaceLabel("");
+        setAddressQuery("");
+        setAddressLookupFailed(false);
+        geocodeAttemptedKeyRef.current = "";
+        void resolveAddressForCoords(lat, lng);
       } else {
         resetLocation();
       }
@@ -145,9 +180,16 @@ export default function AdminCrisisPanel({
     setFormTemplateId(null);
 
     if (fromReport?.location?.latitude != null && fromReport.location.longitude != null) {
-      setLatitude(String(fromReport.location.latitude));
-      setLongitude(String(fromReport.location.longitude));
+      const lat = fromReport.location.latitude;
+      const lng = fromReport.location.longitude;
+      setLatitude(String(lat));
+      setLongitude(String(lng));
       setLocationStatus("detected");
+      setPlaceLabel("");
+      setAddressQuery("");
+      setAddressLookupFailed(false);
+      geocodeAttemptedKeyRef.current = "";
+      void resolveAddressForCoords(lat, lng);
     } else {
       resetLocation();
       if (!gpsAttemptedRef.current) {
@@ -155,7 +197,7 @@ export default function AdminCrisisPanel({
         void detectLocation();
       }
     }
-  }, [open, editingCrisis, fromReport, resetLocation, detectLocation]);
+  }, [open, editingCrisis, fromReport, resetLocation, detectLocation, resolveAddressForCoords]);
 
   useEffect(() => {
     const query = addressQuery.trim();
@@ -199,6 +241,8 @@ export default function AdminCrisisPanel({
     setPlaceLabel(place.display_name);
     setLocationStatus("detected");
     setAddressQuery(place.display_name);
+    setAddressLookupFailed(false);
+    geocodeAttemptedKeyRef.current = coordsKey(place.latitude, place.longitude);
     setPlaceResults([]);
   };
 
@@ -206,15 +250,8 @@ export default function AdminCrisisPanel({
     setLatitude(lat.toFixed(6));
     setLongitude(lng.toFixed(6));
     setLocationStatus("detected");
-    void fetchReverseGeocode(lat, lng)
-      .then((geo) => {
-        const label = geo.display_name ?? t("map.pickedLocation");
-        setPlaceLabel(label);
-        setAddressQuery(label);
-      })
-      .catch(() => {
-        setPlaceLabel(t("map.pickedLocation"));
-      });
+    geocodeAttemptedKeyRef.current = "";
+    void resolveAddressForCoords(lat, lng);
   };
 
   const title = editingCrisis
@@ -384,6 +421,8 @@ export default function AdminCrisisPanel({
               onSelectPlace={selectPlace}
               onMapPick={handleMapPick}
               onUseGps={() => void detectLocation()}
+              resolvingAddress={addressResolving}
+              addressLookupFailed={addressLookupFailed}
             />
           </div>
 

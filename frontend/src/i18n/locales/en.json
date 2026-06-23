@@ -34,6 +34,9 @@
   "dashboard": {
     "crisisSearchArea": "Crisis & search area",
     "activeCrisis": "Active crisis",
+    "searchCrisis": "Search crises",
+    "searchCrisisPlaceholder": "Search or select a crisis…",
+    "noCrisesMatch": "No crises match your search.",
     "allCrises": "All crises",
     "allCrisesMeta": "{{count}} active crises",
     "allCrisesView": "All crises · {{count}} reports on map",
@@ -204,6 +207,8 @@
       "photo": "Add a photo"
     },
     "detecting": "Detecting your location…",
+    "resolvingAddress": "Looking up address…",
+    "addressLookupFailed": "Address unavailable — coordinates saved",
     "currentLocation": "Your current location",
     "locationUnknown": "Location not set",
     "gpsAuto": "GPS detected automatically",
@@ -258,6 +263,7 @@
   },
   "locationPicker": {
     "useMyGps": "Use my GPS",
+    "coordinates": "Lat {{lat}}, Lng {{lng}}",
     "tabGps": "GPS",
     "tabMap": "Tap map",
     "tabSearch": "Search",
@@ -290,7 +296,7 @@
     "fieldSubtype": "Subtype",
     "fieldOnset": "Onset date & time",
     "fieldLocation": "Crisis location",
-    "fieldFormTemplate": "Report form",
+    "fieldFormTemplate": "Report form template",
     "defaultFormTemplate": "Standard damage report (default)",
     "formTemplateHint": "Choose a custom form or use the built-in damage wizard.",
     "manageForms": "Form manager",

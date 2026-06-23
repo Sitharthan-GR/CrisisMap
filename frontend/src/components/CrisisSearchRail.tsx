@@ -11,6 +11,7 @@ import type { PlaceSearchResult } from "../api/client";
 import type { PickedMapLocation } from "../types/location";
 import type { Crisis } from "../types/report";
 import { ALL_CRISES_ID } from "../lib/constants";
+import CrisisCombobox from "./CrisisCombobox";
 import {
   displayValueToMeters,
   formatRadiusLabel,
@@ -169,22 +170,13 @@ export default function CrisisSearchRail({
                 )}
               </div>
             </div>
-            <select
-              className="field crisis-select"
-              value={selectedCrisisId}
+            <CrisisCombobox
+              crises={crisisEvents}
+              selectedCrisisId={selectedCrisisId}
+              nearestCrisisId={nearestCrisisId}
               disabled={loading}
-              onChange={(e) => onCrisisChange(e.target.value)}
-            >
-              <option value={ALL_CRISES_ID}>{t("dashboard.allCrises")}</option>
-              {crisisEvents.map((crisis) => (
-                <option key={crisis.id} value={crisis.id}>
-                  {crisis.name}
-                  {nearestCrisisId === crisis.id
-                    ? ` (${t("wizard.nearestCrisis")})`
-                    : ""}
-                </option>
-              ))}
-            </select>
+              onChange={onCrisisChange}
+            />
           </>
         ) : (
           <p className="hint">{t("dashboard.noActiveCrises")}</p>

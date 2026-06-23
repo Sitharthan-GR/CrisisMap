@@ -17,6 +17,17 @@ from app.schemas.geocode import (
 
 logger = structlog.get_logger(__name__)
 
+_HTTP_CLIENT_KWARGS = {"timeout": 15.0, "follow_redirects": True}
+_reverse_geocode_cache: dict[str, ReverseGeocodeOut] = {}
+
+
+def _reverse_cache_key(lat: float, lng: float) -> str:
+    return f"{round(lat, 5)},{round(lng, 5)}"
+
+
+def clear_reverse_geocode_cache() -> None:
+    _reverse_geocode_cache.clear()
+
 
 def haversine_meters(lat1: float, lng1: float, lat2: float, lng2: float) -> float:
     radius = 6_371_000
@@ -44,7 +55,52 @@ def _extract_admin_levels(address: dict[str, str]) -> tuple[str | None, str | No
     return country, state, city
 
 
-async def reverse_geocode(settings: Settings, lat: float, lng: float) -> ReverseGeocodeOut:
+def _format_photon_display_name(properties: dict[str, Any]) -> str:
+    parts: list[str] = []
+    street_line = " ".join(
+        part
+        for part in (properties.get("housenumber"), properties.get("street"))
+        if part
+    ).strip()
+    if street_line:
+        parts.append(street_line)
+
+    for key in ("locality", "district", "city", "county", "state", "country"):
+        value = properties.get(key)
+        if not value:
+            continue
+        text = str(value).strip()
+        if text and (not parts or parts[-1] != text):
+            parts.append(text)
+
+    return ", ".join(parts)
+
+
+def _format_bigdatacloud_display_name(payload: dict[str, Any]) -> str:
+    parts: list[str] = []
+    city = payload.get("locality") or payload.get("city")
+    state = payload.get("principalSubdivision")
+    postcode = payload.get("postcode")
+    country = str(payload.get("countryName") or "").replace(" (the)", "").strip()
+
+    if city:
+        parts.append(str(city))
+    if state and str(state) not in parts:
+        parts.append(str(state))
+    if postcode and parts:
+        parts[-1] = f"{parts[-1]} {postcode}"
+    elif postcode:
+        parts.append(str(postcode))
+    if country and country not in parts:
+        parts.append(country)
+    return ", ".join(parts)
+
+
+async def _nominatim_reverse(
+    settings: Settings,
+    lat: float,
+    lng: float,
+) -> ReverseGeocodeOut | None:
     url = f"{settings.nominatim_base_url}/reverse"
     params = {
         "lat": str(lat),
@@ -54,25 +110,146 @@ async def reverse_geocode(settings: Settings, lat: float, lng: float) -> Reverse
     }
     headers = {"User-Agent": settings.nominatim_user_agent}
 
-    async with httpx.AsyncClient(timeout=15.0) as client:
+    async with httpx.AsyncClient(**_HTTP_CLIENT_KWARGS) as client:
         try:
             response = await client.get(url, params=params, headers=headers)
         except httpx.RequestError as exc:
-            logger.error("nominatim_request_failed", error=str(exc))
-            raise GeocodeError("Reverse geocoding service unreachable.") from exc
+            logger.warning("nominatim_request_failed", error=str(exc))
+            return None
 
     if response.status_code >= 400:
-        raise GeocodeError("Reverse geocoding service returned an error.")
+        logger.warning(
+            "nominatim_reverse_failed",
+            status_code=response.status_code,
+            lat=lat,
+            lng=lng,
+        )
+        return None
 
-    payload = response.json()
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+
     address = payload.get("address", {})
     admin1, admin2, admin3 = _extract_admin_levels(address)
+    display_name = payload.get("display_name")
+    if not display_name and not any((admin1, admin2, admin3)):
+        return None
+
     return ReverseGeocodeOut(
         admin_level_1=admin1,
         admin_level_2=admin2,
         admin_level_3=admin3,
-        display_name=payload.get("display_name"),
+        display_name=display_name,
     )
+
+
+async def _photon_reverse(
+    settings: Settings,
+    lat: float,
+    lng: float,
+) -> ReverseGeocodeOut | None:
+    url = "https://photon.komoot.io/reverse"
+    params = {"lat": str(lat), "lon": str(lng)}
+    headers = {"User-Agent": settings.nominatim_user_agent}
+
+    async with httpx.AsyncClient(**_HTTP_CLIENT_KWARGS) as client:
+        try:
+            response = await client.get(url, params=params, headers=headers)
+        except httpx.RequestError as exc:
+            logger.warning("photon_request_failed", error=str(exc))
+            return None
+
+    if response.status_code >= 400:
+        logger.warning(
+            "photon_reverse_failed",
+            status_code=response.status_code,
+            lat=lat,
+            lng=lng,
+        )
+        return None
+
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+
+    features = payload.get("features") or []
+    if not features:
+        return None
+
+    properties = features[0].get("properties") or {}
+    display_name = _format_photon_display_name(properties)
+    if not display_name:
+        return None
+
+    return ReverseGeocodeOut(
+        admin_level_1=properties.get("country"),
+        admin_level_2=properties.get("state"),
+        admin_level_3=properties.get("city") or properties.get("locality"),
+        display_name=display_name,
+    )
+
+
+async def _bigdatacloud_reverse(lat: float, lng: float) -> ReverseGeocodeOut | None:
+    url = "https://api.bigdatacloud.net/data/reverse-geocode-client"
+    params = {
+        "latitude": str(lat),
+        "longitude": str(lng),
+        "localityLanguage": "en",
+    }
+
+    async with httpx.AsyncClient(**_HTTP_CLIENT_KWARGS) as client:
+        try:
+            response = await client.get(url, params=params)
+        except httpx.RequestError as exc:
+            logger.warning("bigdatacloud_request_failed", error=str(exc))
+            return None
+
+    if response.status_code >= 400:
+        logger.warning(
+            "bigdatacloud_reverse_failed",
+            status_code=response.status_code,
+            lat=lat,
+            lng=lng,
+        )
+        return None
+
+    try:
+        payload = response.json()
+    except ValueError:
+        return None
+
+    display_name = _format_bigdatacloud_display_name(payload)
+    if not display_name:
+        return None
+
+    country = str(payload.get("countryName") or "").replace(" (the)", "").strip() or None
+    return ReverseGeocodeOut(
+        admin_level_1=country,
+        admin_level_2=payload.get("principalSubdivision"),
+        admin_level_3=payload.get("city") or payload.get("locality"),
+        display_name=display_name,
+    )
+
+
+async def reverse_geocode(settings: Settings, lat: float, lng: float) -> ReverseGeocodeOut:
+    cache_key = _reverse_cache_key(lat, lng)
+    cached = _reverse_geocode_cache.get(cache_key)
+    if cached is not None:
+        return cached
+
+    result = await _photon_reverse(settings, lat, lng)
+    if result is None:
+        result = await _bigdatacloud_reverse(lat, lng)
+    if result is None:
+        result = await _nominatim_reverse(settings, lat, lng)
+    if result is None:
+        raise GeocodeError("Reverse geocoding service returned an error.")
+
+    _reverse_geocode_cache[cache_key] = result
+    return result
 
 
 async def search_places(

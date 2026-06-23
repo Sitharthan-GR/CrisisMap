@@ -77,3 +77,92 @@ async def test_ip_location_public_ip(client: AsyncClient, monkeypatch: pytest.Mo
     assert body["data"]["available"] is True
     assert body["data"]["latitude"] == 50.45
     assert body["data"]["country"] == "Ukraine"
+
+
+def test_format_bigdatacloud_display_name() -> None:
+    label = geocoding._format_bigdatacloud_display_name(
+        {
+            "locality": "Knoxville",
+            "city": "Knoxville",
+            "principalSubdivision": "Tennessee",
+            "postcode": "37916",
+            "countryName": "United States of America (the)",
+        }
+    )
+    assert "Knoxville" in label
+    assert "Tennessee" in label
+    assert "37916" in label
+    assert "United States of America" in label
+
+
+@pytest.mark.asyncio
+async def test_reverse_geocode_falls_back_to_photon(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    geocoding.clear_reverse_geocode_cache()
+
+    async def fake_photon(settings, lat: float, lng: float):
+        from app.schemas.geocode import ReverseGeocodeOut
+
+        return ReverseGeocodeOut(
+            admin_level_1="United States",
+            admin_level_2="TN",
+            admin_level_3="Knoxville",
+            display_name="316 James Agee Street, Knoxville, TN, United States",
+        )
+
+    async def fake_bigdatacloud(lat: float, lng: float) -> None:
+        return None
+
+    async def fake_nominatim(settings, lat: float, lng: float) -> None:
+        return None
+
+    monkeypatch.setattr(geocoding, "_photon_reverse", fake_photon)
+    monkeypatch.setattr(geocoding, "_bigdatacloud_reverse", fake_bigdatacloud)
+    monkeypatch.setattr(geocoding, "_nominatim_reverse", fake_nominatim)
+
+    response = await client.get(
+        "/api/v1/geocode/reverse",
+        params={"lat": 35.961024, "lng": -83.929729},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["error"] is None
+    assert "James Agee Street" in body["data"]["display_name"]
+
+
+@pytest.mark.asyncio
+async def test_reverse_geocode_falls_back_to_bigdatacloud(
+    client: AsyncClient,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    geocoding.clear_reverse_geocode_cache()
+
+    async def fake_photon(settings, lat: float, lng: float) -> None:
+        return None
+
+    async def fake_bigdatacloud(lat: float, lng: float):
+        from app.schemas.geocode import ReverseGeocodeOut
+
+        return ReverseGeocodeOut(
+            admin_level_1="United States of America",
+            admin_level_2="Tennessee",
+            admin_level_3="Knoxville",
+            display_name="Knoxville, Tennessee 37916, United States of America",
+        )
+
+    monkeypatch.setattr(geocoding, "_photon_reverse", fake_photon)
+    monkeypatch.setattr(geocoding, "_bigdatacloud_reverse", fake_bigdatacloud)
+    monkeypatch.setattr(geocoding, "_nominatim_reverse", lambda *a, **k: None)
+
+    response = await client.get(
+        "/api/v1/geocode/reverse",
+        params={"lat": 35.961143, "lng": -83.929685},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["error"] is None
+    assert "Knoxville" in body["data"]["display_name"]
