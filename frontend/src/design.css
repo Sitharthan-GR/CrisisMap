@@ -1126,7 +1126,8 @@ select.field {
 .map-chip {
   position: absolute;
   top: 12px;
-  left: 12px;
+  right: 12px;
+  left: auto;
   bottom: auto;
   display: inline-flex;
   align-items: center;
@@ -3098,6 +3099,18 @@ body.pin-drop-focus .map-help-btn {
 }
 
 /* ---------------- export modal ---------------- */
+.remote-area-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 2500;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+  background: oklch(0.1 0.02 256 / 0.55);
+  backdrop-filter: blur(2px);
+}
+
 .export-scrim {
   position: fixed;
   inset: 0;
@@ -3160,6 +3173,58 @@ body.pin-drop-focus .map-help-btn {
   gap: 10px;
   padding: 16px 22px 22px;
   border-top: 1px solid var(--border);
+}
+
+.remote-area-modal-hint {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+  color: var(--text-dim);
+}
+
+.remote-area-modal-location {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 12px 0 0;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--surface-2, var(--bg-2));
+  border: 1px solid var(--border);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--text);
+  line-height: 1.35;
+}
+
+.remote-area-modal-location svg {
+  width: 16px;
+  height: 16px;
+  flex-shrink: 0;
+  margin-top: 1px;
+  color: var(--accent);
+}
+
+.remote-area-modal-foot {
+  flex-wrap: wrap;
+  justify-content: stretch;
+}
+
+.remote-area-modal-foot .btn-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+}
+
+@media (max-width: 480px) {
+  .remote-area-modal-foot {
+    flex-direction: column;
+  }
+
+  .remote-area-modal-foot .btn {
+    width: 100%;
+  }
 }
 
 .export-grid-2 {

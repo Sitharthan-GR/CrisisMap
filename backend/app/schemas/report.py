@@ -17,7 +17,7 @@ InfraType = Literal[
     "other",
 ]
 ReportStatus = Literal["pending", "validated", "rejected"]
-SubmissionChannel = Literal["app", "whatsapp", "web", "sms"]
+SubmissionChannel = Literal["mobile", "web"]
 
 
 class ReportCreate(BaseModel):
@@ -31,7 +31,7 @@ class ReportCreate(BaseModel):
     description_raw: str | None = None
     reporter_name: str | None = Field(default=None, max_length=100)
     source_language: str | None = Field(default=None, max_length=10)
-    submission_channel: SubmissionChannel = "app"
+    submission_channel: SubmissionChannel = "web"
     collected_at: datetime
     location: LocationInput
     form_responses: dict[str, Any] | None = None

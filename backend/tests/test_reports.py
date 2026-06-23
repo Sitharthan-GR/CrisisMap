@@ -47,7 +47,7 @@ REPORT_ROW = {
     "source_language": "en",
     "is_latest_version": True,
     "version_number": 1,
-    "submission_channel": "app",
+    "submission_channel": "mobile",
     "status": "pending",
     "collected_at": "2025-02-06T06:00:00+00:00",
     "submitted_at": "2025-02-06T06:01:00+00:00",
@@ -109,7 +109,7 @@ async def test_create_report(client: AsyncClient, mock_supabase, monkeypatch) ->
             "nature_of_crisis": "earthquake",
             "description_raw": "Building has collapsed on one side",
             "source_language": "en",
-            "submission_channel": "app",
+            "submission_channel": "mobile",
             "collected_at": "2025-02-06T06:00:00Z",
             "location": {
                 "latitude": 37.4954,

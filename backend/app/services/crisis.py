@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
 from typing import Any
 
+import re
 import structlog
 
 from app.core.exceptions import CrisisClosedError, NotFoundError, ValidationError
@@ -15,7 +16,12 @@ logger = structlog.get_logger(__name__)
 def _parse_dt(value: Any) -> datetime:
     if isinstance(value, datetime):
         return value
-    return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    text = str(value).replace("Z", "+00:00")
+    match = re.match(r"^(.+?)\.(\d+)(.*)$", text)
+    if match:
+        head, frac, rest = match.groups()
+        text = f"{head}.{(frac + '000000')[:6]}{rest}"
+    return datetime.fromisoformat(text)
 
 
 def _row_to_crisis(row: dict[str, Any]) -> CrisisOut:

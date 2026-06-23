@@ -85,6 +85,32 @@ export function findNearestCrisisId(
   return bestId ?? crises[0].id;
 }
 
+/** Closest crisis with a valid epicenter and its distance in meters. */
+export function findNearestCrisisWithDistance(
+  crises: Crisis[],
+  lat: number,
+  lng: number,
+): { crisis: Crisis; distanceMeters: number } | null {
+  let best: { crisis: Crisis; distanceMeters: number } | null = null;
+
+  for (const crisis of crises) {
+    if (!hasValidEpicenter(crisis.epicenter_lat, crisis.epicenter_lng)) {
+      continue;
+    }
+    const d = distanceMeters(
+      lat,
+      lng,
+      crisis.epicenter_lat!,
+      crisis.epicenter_lng!,
+    );
+    if (!best || d < best.distanceMeters) {
+      best = { crisis, distanceMeters: d };
+    }
+  }
+
+  return best;
+}
+
 export function crisisSelectLabel(
   crisis: { id: string; name: string },
   nearestId: string | null | undefined,

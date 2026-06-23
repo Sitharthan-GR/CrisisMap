@@ -50,6 +50,7 @@ import {
   saveReporterName,
 } from "../lib/reporterName";
 import { resolveGeocodeLabel } from "../lib/address";
+import { detectSubmissionChannel } from "../lib/submissionChannel";
 import {
   damageLevelLabel,
   infraTypeLabel,
@@ -328,6 +329,7 @@ export default function CrisisReportForm() {
       nearest_crisis_id: string | null;
     },
     prefillCrisisId?: string,
+    prefillPreferUnlisted?: boolean,
   ) => {
     setCrises(options.crises);
     setUnlistedCrisisId(options.unlisted_crisis_id);
@@ -343,6 +345,11 @@ export default function CrisisReportForm() {
           setNature((current) => current ?? defaultNatureFromCrisis(crisis));
         }
       }
+      return;
+    }
+
+    if (prefillPreferUnlisted) {
+      setSelectedEventId(OTHER_CRISIS_VALUE);
       return;
     }
 
@@ -424,7 +431,7 @@ export default function CrisisReportForm() {
         prefillLat !== undefined && prefillLng !== undefined
           ? reportingOptionsWithNearest(cached, prefillLat, prefillLng)
           : cached;
-      applyReportingOptions(options, locationPrefill?.crisisId);
+      applyReportingOptions(options, locationPrefill?.crisisId, locationPrefill?.preferUnlistedCrisis);
       setLoadingCrises(false);
     }
 
@@ -435,7 +442,11 @@ export default function CrisisReportForm() {
           prefillLat !== undefined && prefillLng !== undefined
             ? reportingOptionsWithNearest(options, prefillLat, prefillLng)
             : options;
-        applyReportingOptions(resolved, locationPrefill?.crisisId);
+        applyReportingOptions(
+          resolved,
+          locationPrefill?.crisisId,
+          locationPrefill?.preferUnlistedCrisis,
+        );
       })
       .catch((err) => {
         if (err.name === "AbortError") return;
@@ -709,7 +720,7 @@ export default function CrisisReportForm() {
       description_raw: description.trim() || undefined,
       reporter_name: resolvedReporterName,
       source_language: i18n.language,
-      submission_channel: "app" as const,
+      submission_channel: detectSubmissionChannel(),
       collected_at: toIsoUtc(new Date()),
       location: {
         latitude: Number(latitude),

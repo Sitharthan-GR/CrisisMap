@@ -2,6 +2,7 @@ import { CircleHelp, Crosshair, MapPin, MapPinPlus, X } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { createPortal } from "react-dom";
 import {
   ApiError,
   fetchActiveCrises,
@@ -20,8 +21,10 @@ import {
   DEFAULT_RADIUS_METERS,
 } from "../lib/constants";
 import {
+  distanceMeters,
   filterReportsInRadius,
   findNearestCrisisId,
+  findNearestCrisisWithDistance,
   hasValidEpicenter,
   radiusForReports,
   reportsCentroid,
@@ -33,7 +36,7 @@ import {
   type DamageFilter,
   type ReportSort,
 } from "../lib/reportFilters";
-import type { MapViewport } from "../types/crisis";
+import type { MapFlyRequest, MapViewport } from "../types/crisis";
 import type { PickedMapLocation } from "../types/location";
 import type { Crisis, MapFeatureCollection, MapReportPin, ReportDetail } from "../types/report";
 import type { BuildingPick } from "./BuildingFootprints";
@@ -44,6 +47,13 @@ import LiveActivityFeed from "./LiveActivityFeed";
 import { useMobileNav } from "../lib/MobileNavContext";
 import { MOBILE_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
 import { useDistanceSystem } from "../lib/useDistanceSystem";
+import {
+  displayValueToMeters,
+  formatDistance,
+  formatRadiusLabel,
+  inferDistanceSystem,
+  type DistanceSystem,
+} from "../lib/units";
 
 function reportDetailToPin(detail: ReportDetail): MapReportPin | null {
   if (!detail.location) return null;
@@ -77,6 +87,79 @@ function mapFeaturesToPins(
   }));
 }
 
+const LOCAL_AREA_RADIUS_DISPLAY = 50;
+
+interface RemoteAreaNotice {
+  radiusLabel: string;
+  nearestCrisisId?: string;
+  nearestCrisisName?: string;
+  nearestDistanceMeters?: number;
+  noActiveCrises?: boolean;
+}
+
+function resolveNoCrisisNearbyNotice(
+  lat: number,
+  lng: number,
+  distanceSystem: DistanceSystem,
+  crisisEvents: Crisis[],
+): RemoteAreaNotice | null {
+  const listedCrises = crisisEvents.filter(
+    (c) => !c.is_unlisted && c.status === "active",
+  );
+
+  const thresholdMeters = displayValueToMeters(
+    LOCAL_AREA_RADIUS_DISPLAY,
+    distanceSystem,
+  );
+  const radiusLabel = formatRadiusLabel(thresholdMeters, distanceSystem);
+
+  if (listedCrises.length === 0) {
+    return { radiusLabel, noActiveCrises: true };
+  }
+
+  const crisisNearby = listedCrises.some((c) => {
+    if (!hasValidEpicenter(c.epicenter_lat, c.epicenter_lng)) return false;
+    return (
+      distanceMeters(lat, lng, c.epicenter_lat!, c.epicenter_lng!) <=
+      thresholdMeters
+    );
+  });
+  if (crisisNearby) return null;
+
+  const nearest = findNearestCrisisWithDistance(listedCrises, lat, lng);
+  if (nearest) {
+    return {
+      radiusLabel,
+      nearestCrisisId: nearest.crisis.id,
+      nearestCrisisName: nearest.crisis.name,
+      nearestDistanceMeters: nearest.distanceMeters,
+    };
+  }
+
+  const fallbackId = findNearestCrisisId(listedCrises, lat, lng);
+  const fallbackCrisis = listedCrises.find((c) => c.id === fallbackId);
+  if (!fallbackCrisis) {
+    return { radiusLabel, noActiveCrises: true };
+  }
+
+  let nearestDistanceMeters: number | undefined;
+  if (hasValidEpicenter(fallbackCrisis.epicenter_lat, fallbackCrisis.epicenter_lng)) {
+    nearestDistanceMeters = distanceMeters(
+      lat,
+      lng,
+      fallbackCrisis.epicenter_lat!,
+      fallbackCrisis.epicenter_lng!,
+    );
+  }
+
+  return {
+    radiusLabel,
+    nearestCrisisId: fallbackCrisis.id,
+    nearestCrisisName: fallbackCrisis.name,
+    nearestDistanceMeters,
+  };
+}
+
 export default function Dashboard() {
   const { t } = useTranslation();
   const navigate = useNavigate();
@@ -101,6 +184,9 @@ export default function Dashboard() {
   const [pickedLocation, setPickedLocation] = useState<PickedMapLocation | null>(null);
   const [pinDropMode, setPinDropMode] = useState(false);
   const [awaitingPinReport, setAwaitingPinReport] = useState(false);
+  const [remoteAreaNotice, setRemoteAreaNotice] = useState<RemoteAreaNotice | null>(null);
+  const [mapNavNonce, setMapNavNonce] = useState(0);
+  const [mapFlyRequest, setMapFlyRequest] = useState<MapFlyRequest | null>(null);
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -420,10 +506,17 @@ export default function Dashboard() {
         lat: coords.latitude,
         lng: coords.longitude,
       }));
-      selectNearestCrisis(coords.latitude, coords.longitude);
+      setMapFlyRequest({
+        lat: coords.latitude,
+        lng: coords.longitude,
+        zoom: 12,
+        nonce: Date.now(),
+      });
       void autoDetectLanguageFromLocation(coords.latitude, coords.longitude);
+      let distanceSystemForNotice = distanceSystem;
       try {
         const geo = await fetchReverseGeocode(coords.latitude, coords.longitude);
+        distanceSystemForNotice = inferDistanceSystem(geo.admin_level_1);
         setPickedLocation({
           lat: coords.latitude,
           lng: coords.longitude,
@@ -438,6 +531,17 @@ export default function Dashboard() {
           label: t("wizard.currentLocation"),
           source: "gps",
         });
+      }
+      const notice = resolveNoCrisisNearbyNotice(
+        coords.latitude,
+        coords.longitude,
+        distanceSystemForNotice,
+        crisisEvents,
+      );
+      setRemoteAreaNotice(notice);
+      setAwaitingPinReport(!notice);
+      if (isMobile) {
+        setMobilePanel("map");
       }
     } catch (err) {
       const message =
@@ -494,14 +598,6 @@ export default function Dashboard() {
     },
     [crisisEvents],
   );
-
-  const selectNearestCrisis = useCallback((lat: number, lng: number) => {
-    if (crisisEvents.length === 0) return;
-    const nearestId = findNearestCrisisId(crisisEvents, lat, lng);
-    if (!nearestId) return;
-    centeredCrisisRef.current = null;
-    setSelectedCrisisId(nearestId);
-  }, [crisisEvents]);
 
   const selectSearchedPlace = (place: PlaceSearchResult) => {
     applyPickedLocation({
@@ -597,6 +693,7 @@ export default function Dashboard() {
   const startPinDrop = () => {
     setPinDropMode(true);
     setAwaitingPinReport(false);
+    setRemoteAreaNotice(null);
     setSelectedReport(null);
     if (isMobile) {
       setMobilePanel("map");
@@ -609,6 +706,7 @@ export default function Dashboard() {
   const cancelPinDrop = () => {
     setPinDropMode(false);
     setAwaitingPinReport(false);
+    setRemoteAreaNotice(null);
   };
 
   const finishPinDrop = (pick: PickedMapLocation, label: string) => {
@@ -629,20 +727,69 @@ export default function Dashboard() {
           latitude: pickedLocation.lat,
           longitude: pickedLocation.lng,
           placeLabel: pickedLocation.label,
-          locationMethod: "manual" as const,
-          crisisId:
-            selectedCrisisId && selectedCrisisId !== ALL_CRISES_ID
+          locationMethod: pickedLocation.source === "gps" ? "gps" : "manual",
+          crisisId: remoteAreaNotice
+            ? undefined
+            : selectedCrisisId && selectedCrisisId !== ALL_CRISES_ID
               ? selectedCrisisId
               : nearestCrisisId || undefined,
           buildingFootprintId: pickedLocation.buildingFootprintId,
+          preferUnlistedCrisis: remoteAreaNotice ? true : undefined,
         },
       },
     });
     setAwaitingPinReport(false);
+    setRemoteAreaNotice(null);
+  };
+
+  const dismissRemoteAreaModal = () => {
+    setRemoteAreaNotice(null);
+    setPickedLocation(null);
+  };
+
+  const changeLocationFromModal = () => {
+    setRemoteAreaNotice(null);
+    startPinDrop();
+  };
+
+  const goToNearestCrisis = () => {
+    if (!remoteAreaNotice?.nearestCrisisId) return;
+    const crisis = crisisEvents.find((c) => c.id === remoteAreaNotice.nearestCrisisId);
+    if (!crisis || !hasValidEpicenter(crisis.epicenter_lat, crisis.epicenter_lng)) {
+      return;
+    }
+
+    const targetLat = crisis.epicenter_lat!;
+    const targetLng = crisis.epicenter_lng!;
+
+    // Let the post-load effect size the search radius to cover this crisis's reports.
+    centeredCrisisRef.current = null;
+    setSelectedReport(null);
+    setSelectedCrisisId(crisis.id);
+    setViewport((v) => ({
+      ...v,
+      lat: targetLat,
+      lng: targetLng,
+      radiusMeters: displayValueToMeters(LOCAL_AREA_RADIUS_DISPLAY, distanceSystem),
+    }));
+    setMapNavNonce((n) => n + 1);
+    setMapFlyRequest({
+      lat: targetLat,
+      lng: targetLng,
+      zoom: 11,
+      nonce: Date.now(),
+    });
+    setRemoteAreaNotice(null);
+    setAwaitingPinReport(false);
+    setPickedLocation(null);
+    if (isMobile) {
+      setMobilePanel("map");
+    }
   };
 
   const dismissPinReport = () => {
     setAwaitingPinReport(false);
+    setRemoteAreaNotice(null);
   };
 
   const selectedCrisis = crisisEvents.find((c) => c.id === selectedCrisisId);
@@ -698,7 +845,8 @@ export default function Dashboard() {
             fitReports={allReports}
             selectedReportId={selectedReport?.id}
             crises={crisisEvents}
-            mapFocusKey={selectedCrisisId}
+            mapFocusKey={`${selectedCrisisId}:${mapNavNonce}`}
+            flyToRequest={mapFlyRequest}
             fitMaxZoom={isAllCrisesMode ? 5 : 13}
             showSearchRadius={!isAllCrisesMode}
             loading={loading}
@@ -745,7 +893,7 @@ export default function Dashboard() {
             </div>
           )}
 
-          {awaitingPinReport && pickedLocation && !pinDropMode && (
+          {awaitingPinReport && pickedLocation && !pinDropMode && !remoteAreaNotice && (
             <div className="pin-drop-result-bar">
               <div className="pin-drop-result-info">
                 <MapPin strokeWidth={2} aria-hidden />
@@ -778,6 +926,96 @@ export default function Dashboard() {
               </div>
             </div>
           )}
+
+          {remoteAreaNotice && pickedLocation &&
+            createPortal(
+              <div
+                className="remote-area-scrim"
+                role="presentation"
+              >
+                <div
+                  className="export-modal remote-area-modal"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="remote-area-modal-title"
+                >
+                  <div className="export-modal-head">
+                    <div>
+                      <h2 id="remote-area-modal-title">
+                        {t("dashboard.remoteAreaTitle")}
+                      </h2>
+                      <p>
+                        {remoteAreaNotice.noActiveCrises
+                          ? t("dashboard.remoteAreaNoCrises")
+                          : t("dashboard.remoteAreaNotice", {
+                              radius: remoteAreaNotice.radiusLabel,
+                            })}
+                      </p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={dismissRemoteAreaModal}
+                      className="icon-btn sm"
+                      aria-label={t("dashboard.pinDropCancel")}
+                    >
+                      <X strokeWidth={2.2} aria-hidden />
+                    </button>
+                  </div>
+                  <div className="export-modal-body">
+                    <p className="remote-area-modal-hint">
+                      {remoteAreaNotice.noActiveCrises
+                        ? t("dashboard.remoteAreaNoCrisesHint")
+                        : remoteAreaNotice.nearestCrisisName &&
+                            remoteAreaNotice.nearestDistanceMeters != null
+                          ? t("dashboard.remoteAreaHint", {
+                              crisisName: remoteAreaNotice.nearestCrisisName,
+                              distance: formatDistance(
+                                remoteAreaNotice.nearestDistanceMeters,
+                                distanceSystem,
+                              ),
+                            })
+                          : t("dashboard.remoteAreaHintGeneric")}
+                    </p>
+                    {pickedLocation && (
+                      <p className="remote-area-modal-location">
+                        <MapPin strokeWidth={2} aria-hidden />
+                        <span>
+                          {pickedLocation.label.split(",")[0]?.trim() ||
+                            pickedLocation.label}
+                        </span>
+                      </p>
+                    )}
+                  </div>
+                  <div className="export-modal-foot remote-area-modal-foot">
+                    <button
+                      type="button"
+                      className="btn"
+                      onClick={changeLocationFromModal}
+                    >
+                      {t("dashboard.pinDropChangeLocation")}
+                    </button>
+                    {remoteAreaNotice.nearestCrisisId && (
+                      <button
+                        type="button"
+                        className="btn"
+                        onClick={goToNearestCrisis}
+                      >
+                        {t("dashboard.goToNearestCrisis")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="btn btn-primary"
+                      onClick={goToReportAtPin}
+                    >
+                      <MapPinPlus strokeWidth={2.2} aria-hidden />
+                      {t("dashboard.reportAtLocation")}
+                    </button>
+                  </div>
+                </div>
+              </div>,
+              document.body,
+            )}
 
           {!pinDropMode && !awaitingPinReport &&
             (isMobile ? (

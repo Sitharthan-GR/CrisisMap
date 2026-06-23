@@ -2,7 +2,7 @@ import L from "leaflet";
 import { Loader2 } from "lucide-react";
 import { useEffect, useRef, useState } from "react";
 import { Circle, MapContainer, Marker, Popup, TileLayer, useMap, useMapEvents } from "react-leaflet";
-import type { MapViewport } from "../types/crisis";
+import type { MapFlyRequest, MapViewport } from "../types/crisis";
 import type { MapReportPin, Crisis } from "../types/report";
 import type { PickedMapLocation } from "../types/location";
 import { createReportMapIcon } from "../lib/mapMarkers";
@@ -17,6 +17,7 @@ interface CrisisMapProps {
   selectedReportId?: string;
   crises?: Crisis[];
   mapFocusKey?: string;
+  flyToRequest?: MapFlyRequest | null;
   fitReports?: MapReportPin[];
   fitMaxZoom?: number;
   showSearchRadius?: boolean;
@@ -51,6 +52,21 @@ function MapPanToReport({
       duration: 0.45,
     });
   }, [selectedReportId, reports, map]);
+
+  return null;
+}
+
+function MapFlyToRequest({ request }: { request?: MapFlyRequest | null }) {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!request) return;
+    const zoom = request.zoom ?? Math.max(map.getZoom(), 11);
+    map.flyTo([request.lat, request.lng], zoom, {
+      animate: true,
+      duration: 0.55,
+    });
+  }, [request, map]);
 
   return null;
 }
@@ -294,6 +310,7 @@ export default function CrisisMap({
   selectedReportId,
   crises,
   mapFocusKey,
+  flyToRequest,
   fitReports,
   fitMaxZoom,
   showSearchRadius = true,
@@ -328,6 +345,7 @@ export default function CrisisMap({
       >
         <BasemapTileLayer />
         <MapGlobeViewport layoutKey={layoutKey} />
+        <MapFlyToRequest request={flyToRequest} />
         <MapFitToReports
           reports={fitReports ?? reports}
           focusKey={mapFocusKey}

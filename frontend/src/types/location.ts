@@ -15,4 +15,6 @@ export interface ReportLocationPrefill {
   locationMethod: LocationMethod;
   crisisId?: string;
   buildingFootprintId?: string;
+  /** When true, open the report form with “Other (not listed)” pre-selected. */
+  preferUnlistedCrisis?: boolean;
 }

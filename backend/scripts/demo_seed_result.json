@@ -1,0 +1,76 @@
+{
+  "crises": [
+    {
+      "id": "f03a360b-6322-4717-809d-529339afb6fa",
+      "name": "Istanbul Earthquake 2026",
+      "status": "active",
+      "report_ids": [
+        "35b8514e-778d-411e-ab4f-360ccdcd40cb",
+        "ba8c4cf8-6c8c-4049-9826-8cd1315744b0",
+        "e4098070-dd6b-4a6d-87cf-1d6079bbd2d8",
+        "2efad03b-3f0d-4c3e-b9a4-d1f4cfd8d652",
+        "b5a1b8e0-5c2c-43e7-85bd-ec5d0e489565"
+      ]
+    },
+    {
+      "id": "eb68969e-d36b-4fe2-9d44-4ba10e224943",
+      "name": "Jakarta Monsoon Floods 2026",
+      "status": "active",
+      "report_ids": [
+        "0d48b5b9-0a7b-4d64-b289-6377355b4322",
+        "5a53f204-ed9b-4586-9769-d2605eec18e0",
+        "68b2605d-250b-4f57-ad37-de90ebeee8ab",
+        "7a60e08c-a966-4989-ade1-98b0e9798702"
+      ]
+    },
+    {
+      "id": "cfe301cb-7950-42ce-932f-b9ef65c2df2d",
+      "name": "Los Angeles Wildfire 2026",
+      "status": "active",
+      "report_ids": [
+        "8a567c3d-def8-4d1a-a156-71d059c1bf49",
+        "0ec2cbe5-33ae-43a2-ae25-24ae5b20cf2b",
+        "fe54f1a9-54d0-42fd-874a-d02d1900fa25",
+        "87f5b76d-208d-42d1-99da-9d42d76ba456"
+      ]
+    },
+    {
+      "id": "d34649ba-caad-4734-9ddc-ade5511c389b",
+      "name": "Beirut Port Explosion 2026",
+      "status": "active",
+      "report_ids": [
+        "f71bf2b1-4e30-4f20-89fc-f3454619cb62",
+        "77dbbab8-e758-48f7-acd1-673488ca0cde",
+        "479ac3ba-282b-4019-8349-12fb672ab93e",
+        "468bf330-9c79-41f7-b822-d9664f400efa"
+      ]
+    },
+    {
+      "id": "15b1e87f-6f9d-4fa2-a834-65fd4aae43da",
+      "name": "Kyiv Infrastructure Damage 2026",
+      "status": "active",
+      "report_ids": [
+        "0ccc032f-c5d4-4409-9e89-c3df9611df9b",
+        "3988d28e-1426-4c58-bc9a-09f9e4c323b2",
+        "44c3b055-e2d8-4206-b5b1-7ba4c74fe50d",
+        "16bd852c-cdcc-4cd0-8c72-b0595353596c"
+      ]
+    },
+    {
+      "id": "97814651-0ee2-462f-8dfc-645ae4522bea",
+      "name": "East Tennessee Flood 2025",
+      "status": "closed",
+      "report_ids": [
+        "296baf02-aaaf-4755-a9b2-c00090d30ea3",
+        "95138538-904e-4d29-88eb-85533b46cbcf",
+        "ec1bece0-bad8-4f87-88e4-7fd4260ab5a4"
+      ]
+    }
+  ],
+  "reports": [],
+  "unlisted_reports": [
+    "0b6e0ed3-212a-4fcd-bc27-81b26b911f28",
+    "fe09a484-694b-467a-864a-cef77c94bcae",
+    "19350f74-5170-46d5-a443-de1b8c86ae7f"
+  ]
+}

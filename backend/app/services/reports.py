@@ -6,7 +6,7 @@ from typing import Any
 import structlog
 
 from app.config import Settings
-from app.core.exceptions import NotFoundError, ValidationError
+from app.core.exceptions import NotFoundError, SupabaseError, ValidationError
 from app.schemas.common import PaginatedResults, PaginationMeta
 from app.schemas.location import LocationDetail, LocationSummary
 from app.schemas.report import (
@@ -21,6 +21,10 @@ from app.services.geocoding import reverse_geocode
 from app.services.supabase import SupabaseClient
 
 logger = structlog.get_logger(__name__)
+
+# Bridge pre/post migration 007 (mobile|web vs app|whatsapp|sms).
+_LEGACY_SUBMISSION_CHANNEL_INSERT = {"mobile": "app", "web": "sms"}
+_LEGACY_SUBMISSION_CHANNEL_READ = {"app": "mobile", "whatsapp": "mobile", "sms": "web"}
 
 LOCATION_SELECT = (
     "id,latitude,longitude,what3words,admin_level_1,admin_level_2,admin_level_3,"
@@ -46,6 +50,34 @@ def _parse_dt(value: Any) -> datetime:
         head, frac, rest = match.groups()
         text = f"{head}.{(frac + '000000')[:6]}{rest}"
     return datetime.fromisoformat(text)
+
+
+def _normalize_submission_channel(value: str) -> str:
+    return _LEGACY_SUBMISSION_CHANNEL_READ.get(value, value)
+
+
+async def _insert_report_row(supabase: SupabaseClient, row: dict[str, Any]) -> dict[str, Any]:
+    channel = row["submission_channel"]
+    candidates = [channel]
+    legacy = _LEGACY_SUBMISSION_CHANNEL_INSERT.get(channel)
+    if legacy and legacy not in candidates:
+        candidates.append(legacy)
+
+    last_error: SupabaseError | None = None
+    for attempt_channel in candidates:
+        attempt = {**row, "submission_channel": attempt_channel}
+        try:
+            return await supabase.insert("report", attempt)
+        except SupabaseError as exc:
+            detail = str(exc.details or exc).lower()
+            if "submission_channel" in detail and attempt_channel != candidates[-1]:
+                last_error = exc
+                continue
+            raise
+
+    if last_error:
+        raise last_error
+    raise ValidationError("Unable to create report")
 
 
 def _location_summary(row: dict[str, Any]) -> LocationSummary:
@@ -100,7 +132,7 @@ def _report_out(row: dict[str, Any], location: dict[str, Any] | None = None) -> 
         source_language=row.get("source_language"),
         is_latest_version=row["is_latest_version"],
         version_number=row["version_number"],
-        submission_channel=row["submission_channel"],
+        submission_channel=_normalize_submission_channel(row["submission_channel"]),
         status=row["status"],
         collected_at=_parse_dt(row["collected_at"]),
         submitted_at=_parse_dt(row["submitted_at"]),
@@ -177,8 +209,8 @@ async def create_report(
         building_footprint_id=payload.location.building_footprint_id,
     )
 
-    report_row = await supabase.insert(
-        "report",
+    report_row = await _insert_report_row(
+        supabase,
         {
             "crisis_id": payload.crisis_id,
             "location_id": location["id"],

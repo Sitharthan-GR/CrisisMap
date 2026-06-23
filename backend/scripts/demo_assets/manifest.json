@@ -1,0 +1,102 @@
+{
+  "earthquake_v1_cracks.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/2004_Chuetsu_earthquake_Damaged_building%2C_Nagaoka_01.jpg/960px-2004_Chuetsu_earthquake_Damaged_building%2C_Nagaoka_01.jpg",
+    "credit": "Wikimedia Commons — 2004 Chuetsu earthquake, Nagaoka"
+  },
+  "earthquake_v2_structural.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/9b/2004_Chuetsu_earthquake_Damaged_building%2C_Nagaoka_02.jpg/960px-2004_Chuetsu_earthquake_Damaged_building%2C_Nagaoka_02.jpg",
+    "credit": "Wikimedia Commons — 2004 Chuetsu earthquake, Nagaoka"
+  },
+  "earthquake_v3_collapsed.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/0/02/Rescue_workers_near_the_semi-collapsed_ten-story_Uranus_Building_on_Xuanyuan_Road_after_the_2024_Hualien_earthquake.jpg/960px-Rescue_workers_near_the_semi-collapsed_ten-story_Uranus_Building_on_Xuanyuan_Road_after_the_2024_Hualien_earthquake.jpg",
+    "credit": "Wikimedia Commons — 2024 Hualien earthquake"
+  },
+  "earthquake_govt_building.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/51/Fukui_Earthquake_1948_-_damaged_building.jpg/960px-Fukui_Earthquake_1948_-_damaged_building.jpg",
+    "credit": "Wikimedia Commons — Fukui Earthquake 1948"
+  },
+  "earthquake_bridge.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/7/76/2010_Chile_earthquake_-_Collapsed_bridge_in_Vespucio_Norte.jpg/960px-2010_Chile_earthquake_-_Collapsed_bridge_in_Vespucio_Norte.jpg",
+    "credit": "Wikimedia Commons — 2010 Chile earthquake"
+  },
+  "flood_v1_ankle.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC413.jpg/960px-September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC413.jpg",
+    "credit": "Wikimedia Commons — Greymouth flood 1988"
+  },
+  "flood_v2_knee.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/49/September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC414.jpg/960px-September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC414.jpg",
+    "credit": "Wikimedia Commons — Greymouth flood 1988"
+  },
+  "flood_v3_submerged.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/1/11/September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC415.jpg/960px-September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC415.jpg",
+    "credit": "Wikimedia Commons — Greymouth flood 1988"
+  },
+  "flood_utility.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/58/Electrical_Line_Down_and_Power_Outage_-_Waterville%2C_Minnesota_Storm_and_Tornado_Damage_%2829886617077%29.jpg/960px-Electrical_Line_Down_and_Power_Outage_-_Waterville%2C_Minnesota_Storm_and_Tornado_Damage_%2829886617077%29.jpg",
+    "credit": "Wikimedia Commons — storm damage, Waterville MN"
+  },
+  "wildfire_complete.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/b/bf/Owsego_MT-_steps_to_burned_down_house%2C_never_rebuilt.jpg/960px-Owsego_MT-_steps_to_burned_down_house%2C_never_rebuilt.jpg",
+    "credit": "Wikimedia Commons — wildfire, Montana"
+  },
+  "wildfire_partial.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/59/Burned_houses_in_Maslovka.JPG/960px-Burned_houses_in_Maslovka.JPG",
+    "credit": "Wikimedia Commons — Maslovka"
+  },
+  "wildfire_minimal.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/33/A_wildfire_affected_Pyr%C3%A9n%C3%A9es-Orientales_in_France.jpg/960px-A_wildfire_affected_Pyr%C3%A9n%C3%A9es-Orientales_in_France.jpg",
+    "credit": "Wikimedia Commons — Pyrénées-Orientales wildfire"
+  },
+  "wildfire_commercial.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/ca/Vehicle_Assembly_Building_damage_from_Hurricane_Frances_night_view.jpg/960px-Vehicle_Assembly_Building_damage_from_Hurricane_Frances_night_view.jpg",
+    "credit": "Wikimedia Commons — Hurricane Frances damage"
+  },
+  "explosion_commercial.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Damage_to_Business_from_Gas_Explosion_%28715.275498.CP%29.jpg/960px-Damage_to_Business_from_Gas_Explosion_%28715.275498.CP%29.jpg",
+    "credit": "Wikimedia Commons — gas explosion damage"
+  },
+  "explosion_government.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c6/Damage_from_an_Explosion_in_the_Equipment_Building_%28grc-1971-c-01269%29.jpg/960px-Damage_from_an_Explosion_in_the_Equipment_Building_%28grc-1971-c-01269%29.jpg",
+    "credit": "Wikimedia Commons — equipment building explosion"
+  },
+  "explosion_utility.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/61/Building_destroyed_by_gas_explosion_-_geograph.org.uk_-_1731825.jpg",
+    "credit": "Wikimedia Commons — gas explosion, geograph.org.uk"
+  },
+  "conflict_government.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/f/fa/A_damaged_building_of_STU.jpg/960px-A_damaged_building_of_STU.jpg",
+    "credit": "Wikimedia Commons — damaged building Ukraine"
+  },
+  "conflict_residential.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/c/c7/A_damaged_building_of_church.jpg/960px-A_damaged_building_of_church.jpg",
+    "credit": "Wikimedia Commons — damaged building Ukraine"
+  },
+  "conflict_transport.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/4/46/Collapsed_Ava_Bridge_%282%29.jpg/960px-Collapsed_Ava_Bridge_%282%29.jpg",
+    "credit": "Wikimedia Commons — collapsed bridge"
+  },
+  "flood_transport.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/9/94/Damage_of_Tsunami_in_Natori.JPEG/960px-Damage_of_Tsunami_in_Natori.JPEG",
+    "credit": "Wikimedia Commons — tsunami damage Natori"
+  },
+  "chemical_spill.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/3/31/OLENTANGY_RIVER_POLLUTION_IS_NOTED_AFTER_A_FIRE_AND_EXPLOSIONS_DESTROYED_A_PENNWALT_CORPORATION_CHEMICAL_STORAGE..._-_NARA_-_555547.jpg/960px-OLENTANGY_RIVER_POLLUTION_IS_NOTED_AFTER_A_FIRE_AND_EXPLOSIONS_DESTROYED_A_PENNWALT_CORPORATION_CHEMICAL_STORAGE..._-_NARA_-_555547.jpg",
+    "credit": "Wikimedia Commons — NARA chemical storage explosion"
+  },
+  "tn_flood_residential.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a1/September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC413.jpg/960px-September_1988_Flood%2C_Damaged_House_on_Cowper_Street%2C_Greymouth._CC413.jpg",
+    "credit": "Wikimedia Commons — Greymouth flood 1988"
+  },
+  "tn_flood_commercial.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/6/61/Buildings_damaged_by_Hurricane_Opal.png",
+    "credit": "Wikimedia Commons — Hurricane Opal damage"
+  },
+  "unlisted_earthquake.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/5/5e/2004_Chuetsu_earthquake_Damaged_building%2C_Nagaoka_01.jpg/960px-2004_Chuetsu_earthquake_Damaged_building%2C_Nagaoka_01.jpg",
+    "credit": "Wikimedia Commons — 2004 Chuetsu earthquake"
+  },
+  "unlisted_explosion.jpg": {
+    "url": "https://upload.wikimedia.org/wikipedia/commons/thumb/a/a2/Damage_to_Business_from_Gas_Explosion_%28715.275498.CP%29.jpg/960px-Damage_to_Business_from_Gas_Explosion_%28715.275498.CP%29.jpg",
+    "credit": "Wikimedia Commons — gas explosion damage"
+  }
+}

@@ -54,7 +54,7 @@ export interface ReportCreateInput {
   description_raw?: string;
   reporter_name?: string;
   source_language?: string;
-  submission_channel: "app" | "whatsapp" | "web" | "sms";
+  submission_channel: "mobile" | "web";
   collected_at: string;
   location: ReportLocationInput;
   form_responses?: Record<string, unknown> | null;
@@ -86,7 +86,7 @@ export interface Report {
   source_language?: string | null;
   is_latest_version: boolean;
   version_number: number;
-  submission_channel: string;
+  submission_channel: "mobile" | "web";
   status: string;
   collected_at: string;
   submitted_at: string;

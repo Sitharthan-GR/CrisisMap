@@ -14,7 +14,7 @@ from app.schemas.photo import (
     PhotoInitiateResponse,
     PhotoOut,
 )
-from app.services.reports import _load_report_payload
+from app.services.reports import _load_report_payload, get_report
 from app.services.supabase import SupabaseClient
 
 logger = structlog.get_logger(__name__)

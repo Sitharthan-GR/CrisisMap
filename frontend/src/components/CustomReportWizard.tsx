@@ -30,6 +30,7 @@ import {
   saveReporterName,
 } from "../lib/reporterName";
 import { resolveGeocodeLabel } from "../lib/address";
+import { detectSubmissionChannel } from "../lib/submissionChannel";
 import type { FormFieldDefinition, FormTemplate } from "../types/formTemplate";
 import { fieldTypeHasOptions } from "../types/formTemplate";
 import type { Crisis, Report, ReportCreateInput } from "../types/report";
@@ -331,7 +332,7 @@ export default function CustomReportWizard({
       description_raw: [descriptionText, formSummary].filter(Boolean).join("\n\n") || undefined,
       reporter_name: resolvedReporterName,
       source_language: i18n.language,
-      submission_channel: "app",
+      submission_channel: detectSubmissionChannel(),
       collected_at: toIsoUtc(new Date()),
       form_responses: formResponses,
       location: {

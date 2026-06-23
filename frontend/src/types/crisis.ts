@@ -37,3 +37,11 @@ export interface MapViewport {
   lng: number;
   radiusMeters: number;
 }
+
+/** Imperative pan request — Leaflet does not follow viewport prop changes on its own. */
+export interface MapFlyRequest {
+  lat: number;
+  lng: number;
+  zoom?: number;
+  nonce: number;
+}

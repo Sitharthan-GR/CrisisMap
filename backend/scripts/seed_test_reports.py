@@ -356,7 +356,7 @@ def create_report(
             ),
             "reporter_name": random.choice(["anonymous", "Test User A", "Test User B", "Field Observer"]),
             "source_language": random.choice(["en", "en", "es", "fr", "ar"]),
-            "submission_channel": random.choice(["app", "app", "web", "whatsapp"]),
+            "submission_channel": random.choice(["mobile", "mobile", "web"]),
             "collected_at": collected_at.isoformat(),
             "location": {
                 "latitude": round(lat, 6),
