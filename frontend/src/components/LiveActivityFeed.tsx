@@ -142,10 +142,10 @@ export default function LiveActivityFeed({
               <button
                 key={report.id}
                 type="button"
-                className={`feed-item dmg-${dmgClass}${isSelected ? " sel" : ""}`}
+                className={`feed-item${isSelected ? " sel" : ""}`}
                 onClick={() => onSelect(report)}
               >
-                <div className={`swatch ${dmgClass}`}>
+                <div className="swatch">
                   {report.thumbnail ? (
                     <img src={report.thumbnail} alt="" />
                   ) : (
@@ -154,7 +154,9 @@ export default function LiveActivityFeed({
                 </div>
                 <div className="fbody">
                   <div className="ftitle">
-                    <b>{damageLevelLabel(report.damageLevel)}</b>
+                    <span className={`dmg-badge ${dmgClass}`}>
+                      {damageLevelLabel(report.damageLevel)}
+                    </span>
                   </div>
                   <span className="fmeta">
                     {infraTypeLabel(report.infraType)} · {formatDistanceLabel(dist, distanceSystem)}
