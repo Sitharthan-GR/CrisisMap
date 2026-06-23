@@ -971,15 +971,54 @@ select.field {
   color: inherit;
 }
 
+.feed-item.dmg-complete {
+  border-color: color-mix(in oklch, var(--dmg-complete) 40%, transparent);
+}
+
+.feed-item.dmg-partial {
+  border-color: color-mix(in oklch, var(--dmg-partial) 40%, transparent);
+}
+
+.feed-item.dmg-minimal {
+  border-color: color-mix(in oklch, var(--dmg-minimal) 40%, transparent);
+}
+
 .feed-item:hover {
   border-color: var(--border-strong);
   background: var(--surface-2);
+}
+
+.feed-item.dmg-complete:hover {
+  border-color: color-mix(in oklch, var(--dmg-complete) 65%, transparent);
+}
+
+.feed-item.dmg-partial:hover {
+  border-color: color-mix(in oklch, var(--dmg-partial) 65%, transparent);
+}
+
+.feed-item.dmg-minimal:hover {
+  border-color: color-mix(in oklch, var(--dmg-minimal) 65%, transparent);
 }
 
 .feed-item.sel {
   border-color: var(--accent);
   box-shadow: 0 0 0 3px var(--accent-soft);
   background: var(--surface-2);
+}
+
+.feed-item.dmg-complete.sel {
+  border-color: var(--dmg-complete);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--dmg-complete) 22%, transparent);
+}
+
+.feed-item.dmg-partial.sel {
+  border-color: var(--dmg-partial);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--dmg-partial) 22%, transparent);
+}
+
+.feed-item.dmg-minimal.sel {
+  border-color: var(--dmg-minimal);
+  box-shadow: 0 0 0 3px color-mix(in oklch, var(--dmg-minimal) 22%, transparent);
 }
 
 .feed-item .swatch {
@@ -1031,6 +1070,18 @@ select.field {
   font-size: 14.5px;
   font-weight: 700;
   white-space: nowrap;
+}
+
+.feed-item.dmg-complete .ftitle b {
+  color: var(--dmg-complete-ink);
+}
+
+.feed-item.dmg-partial .ftitle b {
+  color: var(--dmg-partial-ink);
+}
+
+.feed-item.dmg-minimal .ftitle b {
+  color: var(--dmg-minimal-ink);
 }
 
 .feed-item .fmeta {

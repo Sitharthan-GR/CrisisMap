@@ -7,7 +7,7 @@ const STORAGE_KEY = "crisismap-theme";
 export function getStoredTheme(): Theme {
   const stored = localStorage.getItem(STORAGE_KEY);
   if (stored === "light" || stored === "dark") return stored;
-  return window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light";
+  return "dark";
 }
 
 export function applyTheme(theme: Theme) {

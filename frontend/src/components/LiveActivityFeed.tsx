@@ -142,7 +142,7 @@ export default function LiveActivityFeed({
               <button
                 key={report.id}
                 type="button"
-                className={`feed-item${isSelected ? " sel" : ""}`}
+                className={`feed-item dmg-${dmgClass}${isSelected ? " sel" : ""}`}
                 onClick={() => onSelect(report)}
               >
                 <div className={`swatch ${dmgClass}`}>
