@@ -187,6 +187,13 @@ export default function Dashboard() {
   const [remoteAreaNotice, setRemoteAreaNotice] = useState<RemoteAreaNotice | null>(null);
   const [mapNavNonce, setMapNavNonce] = useState(0);
   const [mapFlyRequest, setMapFlyRequest] = useState<MapFlyRequest | null>(null);
+  const [nearestReference, setNearestReference] = useState<{
+    lat: number;
+    lng: number;
+  }>({
+    lat: DEFAULT_CENTER.lat,
+    lng: DEFAULT_CENTER.lng,
+  });
   const [addressQuery, setAddressQuery] = useState("");
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
@@ -202,8 +209,13 @@ export default function Dashboard() {
   const isAllCrisesMode = selectedCrisisId === ALL_CRISES_ID;
 
   const nearestCrisisId = useMemo(
-    () => findNearestCrisisId(crisisEvents, viewport.lat, viewport.lng),
-    [crisisEvents, viewport.lat, viewport.lng],
+    () =>
+      findNearestCrisisId(
+        crisisEvents,
+        nearestReference.lat,
+        nearestReference.lng,
+      ),
+    [crisisEvents, nearestReference.lat, nearestReference.lng],
   );
 
   const reportsInRange = useMemo(
@@ -322,8 +334,12 @@ export default function Dashboard() {
         void resolveApproxUserLocation({
           latitude: DEFAULT_CENTER.lat,
           longitude: DEFAULT_CENTER.lng,
-        }).then(() => {
+        }).then((resolved) => {
           if (controller.signal.aborted) return;
+          setNearestReference({
+            lat: resolved.latitude,
+            lng: resolved.longitude,
+          });
           if (sharedReportIdRef.current) return;
           pickInitialCrisis();
         });
@@ -501,6 +517,10 @@ export default function Dashboard() {
 
     try {
       const coords = await getCurrentLocation();
+      setNearestReference({
+        lat: coords.latitude,
+        lng: coords.longitude,
+      });
       setViewport((v) => ({
         ...v,
         lat: coords.latitude,
@@ -583,6 +603,7 @@ export default function Dashboard() {
 
   const applyPickedLocation = useCallback(
     (pick: PickedMapLocation) => {
+      setNearestReference({ lat: pick.lat, lng: pick.lng });
       setPickedLocation(pick);
       setViewport((v) => ({ ...v, lat: pick.lat, lng: pick.lng }));
       setPinDropMode(false);
