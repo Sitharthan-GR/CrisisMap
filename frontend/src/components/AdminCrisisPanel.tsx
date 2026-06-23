@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslation } from "react-i18next";
 import { Link } from "react-router-dom";
 import {
@@ -9,9 +9,11 @@ import {
 } from "../api/client";
 import { getAdminToken } from "../lib/adminAuth";
 import { resolveGeocodeLabel } from "../lib/address";
+import { COMMON_CRISIS_SUBTYPES, subtypeOptionLabel } from "../lib/crisisSubtypes";
 import { getCurrentLocation } from "../lib/geolocation";
 import type { FormTemplate } from "../types/formTemplate";
 import type { Crisis, CrisisType, ReportDetail } from "../types/report";
+import ComboField from "./ComboField";
 import ReportLocationPicker from "./ReportLocationPicker";
 
 const CRISIS_TYPES: CrisisType[] = [
@@ -76,6 +78,14 @@ export default function AdminCrisisPanel({
   const [placeResults, setPlaceResults] = useState<PlaceSearchResult[]>([]);
   const [searchingPlaces, setSearchingPlaces] = useState(false);
   const [formTemplates, setFormTemplates] = useState<FormTemplate[]>([]);
+  const subtypeOptions = useMemo(
+    () => COMMON_CRISIS_SUBTYPES[crisisType],
+    [crisisType],
+  );
+  const formatSubtypeOption = useCallback(
+    (option: string) => subtypeOptionLabel(option, t),
+    [t],
+  );
   const [formTemplateId, setFormTemplateId] = useState<string | null>(null);
   const [addressResolving, setAddressResolving] = useState(false);
   const [addressLookupFailed, setAddressLookupFailed] = useState(false);
@@ -353,16 +363,19 @@ export default function AdminCrisisPanel({
               <label className="label" htmlFor="admin-f-sub">
                 {t("admin.fieldSubtype")}
               </label>
-              <input
+              <ComboField
                 id="admin-f-sub"
-                className="field"
                 value={crisisSubtype}
-                onChange={(e) => setCrisisSubtype(e.target.value)}
+                onChange={setCrisisSubtype}
+                options={subtypeOptions}
+                getOptionLabel={formatSubtypeOption}
                 placeholder={t("admin.subtypePlaceholder")}
+                emptyLabel={t("admin.subtypeNoMatches")}
                 required
                 maxLength={50}
                 disabled={Boolean(editingCrisis)}
               />
+              <p className="hint">{t("admin.subtypeHint")}</p>
             </div>
           </div>
 

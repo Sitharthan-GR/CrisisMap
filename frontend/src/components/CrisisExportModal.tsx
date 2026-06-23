@@ -6,6 +6,7 @@ import {
   ApiError,
   downloadAdminExport,
   type ExportFormat,
+  type ExportIncludeScope,
   type ExportQueryParams,
 } from "../api/client";
 import type { Crisis } from "../types/report";
@@ -17,6 +18,22 @@ interface CrisisExportModalProps {
   adminToken: string;
 }
 
+function crisesForIncludeScope(
+  crises: Crisis[],
+  include: ExportIncludeScope,
+): Crisis[] {
+  if (include === "unlisted") {
+    return crises.filter((crisis) => crisis.is_unlisted);
+  }
+  if (include === "active") {
+    return crises.filter((crisis) => crisis.status === "active" && !crisis.is_unlisted);
+  }
+  if (include === "closed") {
+    return crises.filter((crisis) => crisis.status === "closed" && !crisis.is_unlisted);
+  }
+  return crises.filter((crisis) => !crisis.is_unlisted);
+}
+
 export default function CrisisExportModal({
   open,
   onClose,
@@ -24,26 +41,31 @@ export default function CrisisExportModal({
   adminToken,
 }: CrisisExportModalProps) {
   const { t } = useTranslation();
-  const exportableCrises = useMemo(
-    () => crises.filter((crisis) => !crisis.is_unlisted),
-    [crises],
-  );
 
   const [crisisId, setCrisisId] = useState<string>("all");
   const [format, setFormat] = useState<ExportFormat>("csv");
-  const [status, setStatus] = useState<ExportQueryParams["status"]>("validated");
+  const [include, setInclude] = useState<ExportIncludeScope>("all");
   const [dateFrom, setDateFrom] = useState("");
   const [dateTo, setDateTo] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const exportableCrises = useMemo(
+    () => crisesForIncludeScope(crises, include),
+    [crises, include],
+  );
+
   useEffect(() => {
     if (!open) return;
     setError(null);
+    if (include === "unlisted") {
+      setCrisisId("all");
+      return;
+    }
     if (crisisId !== "all" && !exportableCrises.some((crisis) => crisis.id === crisisId)) {
       setCrisisId(exportableCrises.length === 1 ? exportableCrises[0].id : "all");
     }
-  }, [open, crisisId, exportableCrises]);
+  }, [open, crisisId, exportableCrises, include]);
 
   useEffect(() => {
     if (!open) return;
@@ -57,10 +79,12 @@ export default function CrisisExportModal({
   if (!open) return null;
 
   const params: ExportQueryParams = {
-    status,
+    include,
     ...(dateFrom ? { date_from: new Date(dateFrom).toISOString() } : {}),
     ...(dateTo ? { date_to: new Date(dateTo).toISOString() } : {}),
   };
+
+  const canExport = include === "unlisted" || exportableCrises.length > 0;
 
   const handleExport = async () => {
     setError(null);
@@ -120,23 +144,45 @@ export default function CrisisExportModal({
 
         <div className="export-modal-body">
           <div className="admin-fieldset">
-            <label className="label" htmlFor="export-crisis">
-              {t("export.crisisFilter")}
+            <label className="label" htmlFor="export-include">
+              {t("export.statusFilter")}
             </label>
             <select
-              id="export-crisis"
+              id="export-include"
               className="field"
-              value={crisisId}
-              onChange={(e) => setCrisisId(e.target.value)}
+              value={include}
+              onChange={(e) =>
+                setInclude(e.target.value as ExportIncludeScope)
+              }
             >
-              <option value="all">{t("export.allCrises")}</option>
-              {exportableCrises.map((crisis) => (
-                <option key={crisis.id} value={crisis.id}>
-                  {crisis.name}
-                </option>
-              ))}
+              <option value="all">{t("export.includeAll")}</option>
+              <option value="active">{t("export.includeActive")}</option>
+              <option value="closed">{t("export.includeClosed")}</option>
+              <option value="unlisted">{t("export.includeUnlisted")}</option>
             </select>
           </div>
+
+          {include !== "unlisted" && (
+            <div className="admin-fieldset">
+              <label className="label" htmlFor="export-crisis">
+                {t("export.crisisFilter")}
+              </label>
+              <select
+                id="export-crisis"
+                className="field"
+                value={crisisId}
+                onChange={(e) => setCrisisId(e.target.value)}
+                disabled={exportableCrises.length === 0}
+              >
+                <option value="all">{t("export.allCrises")}</option>
+                {exportableCrises.map((crisis) => (
+                  <option key={crisis.id} value={crisis.id}>
+                    {crisis.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="admin-fieldset">
             <label className="label" htmlFor="export-format">
@@ -151,23 +197,6 @@ export default function CrisisExportModal({
               <option value="csv">{t("export.csv")}</option>
               <option value="geojson">{t("export.geojson")}</option>
               <option value="shapefile">{t("export.shapefile")}</option>
-            </select>
-          </div>
-
-          <div className="admin-fieldset">
-            <label className="label" htmlFor="export-status">
-              {t("export.statusFilter")}
-            </label>
-            <select
-              id="export-status"
-              className="field"
-              value={status}
-              onChange={(e) =>
-                setStatus(e.target.value as ExportQueryParams["status"])
-              }
-            >
-              <option value="validated">{t("export.statusValidated")}</option>
-              <option value="all">{t("export.statusAll")}</option>
             </select>
           </div>
 
@@ -213,7 +242,7 @@ export default function CrisisExportModal({
             type="button"
             className="btn btn-primary btn-sm"
             onClick={() => void handleExport()}
-            disabled={loading || exportableCrises.length === 0}
+            disabled={loading || !canExport}
           >
             <Download strokeWidth={2} />
             {loading ? t("export.downloading") : t("export.exportButton")}

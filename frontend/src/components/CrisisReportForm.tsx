@@ -31,7 +31,7 @@ import { Link, useLocation } from "react-router-dom";
 import { ApiError, createReport, fetchReportingOptions, fetchReverseGeocode, searchPlaces, type PlaceSearchResult } from "../api/client";
 import { autoDetectLanguageFromLocation } from "../i18n";
 import { getCurrentLocation } from "../lib/geolocation";
-import { findNearestCrisisId } from "../lib/geo";
+import { findNearestCrisisId, crisisSelectLabel } from "../lib/geo";
 import {
   isApiReachable,
   isNetworkFailure,
@@ -87,7 +87,8 @@ type NatureOfCrisis =
   | "wildfire"
   | "explosion"
   | "chemical"
-  | "conflict";
+  | "conflict"
+  | "other";
 
 interface OptionCard {
   value: string;
@@ -126,6 +127,7 @@ function canProceed(
     infra: InfraType | null;
     infraOtherDetail: string;
     crisis: NatureOfCrisis | null;
+    natureOtherDetail: string;
     debris: "yes" | "no" | null;
   },
 ): boolean {
@@ -136,7 +138,11 @@ function canProceed(
     if (state.infra === "other") return state.infraOtherDetail.trim().length > 0;
     return true;
   }
-  if (step === "crisis") return state.crisis !== null;
+  if (step === "crisis") {
+    if (state.crisis === null) return false;
+    if (state.crisis === "other") return state.natureOtherDetail.trim().length > 0;
+    return true;
+  }
   if (step === "debris") return state.debris !== null;
   return false;
 }
@@ -186,6 +192,7 @@ export default function CrisisReportForm() {
   const [infra, setInfra] = useState<InfraType | null>(null);
   const [infraOtherDetail, setInfraOtherDetail] = useState("");
   const [nature, setNature] = useState<NatureOfCrisis | null>(null);
+  const [natureOtherDetail, setNatureOtherDetail] = useState("");
   const [debris, setDebris] = useState<"yes" | "no" | null>(null);
   const [description, setDescription] = useState("");
   const [reporterName, setReporterName] = useState(loadReporterName);
@@ -220,6 +227,16 @@ export default function CrisisReportForm() {
   const stepIndex = WIZARD_STEPS.indexOf(step);
   const selectedCrisis = crises.find((c) => c.id === selectedEventId);
   const isOtherCrisis = selectedEventId === OTHER_CRISIS_VALUE;
+  const nearestSuffix = t("wizard.nearestCrisis");
+
+  const resolvedNearestCrisisId = useMemo(() => {
+    const lat = latitude ? Number(latitude) : NaN;
+    const lng = longitude ? Number(longitude) : NaN;
+    if (crises.length > 0 && Number.isFinite(lat) && Number.isFinite(lng)) {
+      return findNearestCrisisId(crises, lat, lng);
+    }
+    return nearestCrisisId;
+  }, [crises, latitude, longitude, nearestCrisisId]);
 
   const damageOptions = useMemo<OptionCard[]>(
     () => [
@@ -269,6 +286,7 @@ export default function CrisisReportForm() {
       { value: "explosion", title: t("nature.explosion"), icon: Bomb },
       { value: "chemical", title: t("nature.chemical"), icon: FlaskConical },
       { value: "conflict", title: t("nature.conflict"), icon: Swords },
+      { value: "other", title: t("nature.other"), icon: MoreHorizontal },
     ],
     [t],
   );
@@ -378,6 +396,7 @@ export default function CrisisReportForm() {
       const crisis = crises.find((c) => c.id === value);
       if (crisis) {
         setNature(defaultNatureFromCrisis(crisis));
+        setNatureOtherDetail("");
       }
     }
   };
@@ -539,6 +558,18 @@ export default function CrisisReportForm() {
   };
 
   useEffect(() => {
+    if (crisisSelectionTouchedRef.current || !resolvedNearestCrisisId) return;
+    if (selectedEventId === OTHER_CRISIS_VALUE) return;
+    if (selectedEventId === resolvedNearestCrisisId) return;
+
+    setSelectedEventId(resolvedNearestCrisisId);
+    const nearest = crises.find((c) => c.id === resolvedNearestCrisisId);
+    if (nearest) {
+      setNature((current) => current ?? defaultNatureFromCrisis(nearest));
+    }
+  }, [resolvedNearestCrisisId, crises, selectedEventId]);
+
+  useEffect(() => {
     if (loadingCrises || gpsAttemptedRef.current || locationPrefill) {
       return;
     }
@@ -553,6 +584,7 @@ export default function CrisisReportForm() {
     setInfra(null);
     setInfraOtherDetail("");
     setNature(null);
+    setNatureOtherDetail("");
     setDebris(null);
     setDescription("");
     setPendingPhotos([]);
@@ -646,6 +678,15 @@ export default function CrisisReportForm() {
       return;
     }
 
+    if (nature === "other" && !natureOtherDetail.trim()) {
+      setError(t("wizard.errors.natureOtherRequired"));
+      setStep("crisis");
+      return;
+    }
+
+    const resolvedNature =
+      nature === "other" ? natureOtherDetail.trim() : nature;
+
     if (!latitude || !longitude) {
       setError(t("wizard.errors.locationRequired"));
       setStep("location");
@@ -664,7 +705,7 @@ export default function CrisisReportForm() {
       infra_subtype:
         infra === "other" ? infraOtherDetail.trim() : undefined,
       debris_present: debris === "yes",
-      nature_of_crisis: nature,
+      nature_of_crisis: resolvedNature,
       description_raw: description.trim() || undefined,
       reporter_name: resolvedReporterName,
       source_language: i18n.language,
@@ -757,7 +798,9 @@ export default function CrisisReportForm() {
 
   const headerCrisisName = isOtherCrisis
     ? t("wizard.crisisEventOther")
-    : selectedCrisis?.name ?? t("wizard.reportDamage");
+    : selectedCrisis
+      ? crisisSelectLabel(selectedCrisis, resolvedNearestCrisisId, nearestSuffix)
+      : t("wizard.reportDamage");
 
   const useCustomForm =
     !isOtherCrisis && Boolean(selectedCrisis?.form_template_id);
@@ -781,7 +824,7 @@ export default function CrisisReportForm() {
               >
                 {crises.map((c) => (
                   <option key={c.id} value={c.id}>
-                    {c.name}
+                    {crisisSelectLabel(c, resolvedNearestCrisisId, nearestSuffix)}
                   </option>
                 ))}
                 <option value={OTHER_CRISIS_VALUE}>{t("wizard.crisisEventOther")}</option>
@@ -834,10 +877,7 @@ export default function CrisisReportForm() {
           >
             {crises.map((crisis) => (
               <option key={crisis.id} value={crisis.id}>
-                {crisis.name}
-                {nearestCrisisId === crisis.id
-                  ? ` (${t("wizard.nearestCrisis")})`
-                  : ""}
+                {crisisSelectLabel(crisis, resolvedNearestCrisisId, nearestSuffix)}
               </option>
             ))}
             <option value={OTHER_CRISIS_VALUE}>{t("wizard.crisisEventOther")}</option>
@@ -846,7 +886,7 @@ export default function CrisisReportForm() {
             <p className="mt-1 text-[11px] text-ink-faint">
               {t("wizard.crisisEventOtherHint")}
             </p>
-          ) : nearestCrisisId === selectedEventId ? (
+          ) : resolvedNearestCrisisId === selectedEventId ? (
             <p className="mt-1 text-[11px] text-ink-faint">
               {!isOnline
                 ? t("wizard.offlineNearestCrisisHint")
@@ -954,16 +994,39 @@ export default function CrisisReportForm() {
             )}
 
             {step === "crisis" && (
-              <div className="grid grid-cols-2 gap-2">
-                {crisisOptions.map((opt) => (
-                  <OptionButton
-                    key={opt.value}
-                    option={opt}
-                    grid
-                    selected={nature === opt.value}
-                    onSelect={() => setNature(opt.value as NatureOfCrisis)}
-                  />
-                ))}
+              <div className="space-y-3">
+                <div className="grid grid-cols-2 gap-2">
+                  {crisisOptions.map((opt) => (
+                    <OptionButton
+                      key={opt.value}
+                      option={opt}
+                      grid
+                      selected={nature === opt.value}
+                      onSelect={() => {
+                        setNature(opt.value as NatureOfCrisis);
+                        if (opt.value !== "other") {
+                          setNatureOtherDetail("");
+                        }
+                      }}
+                    />
+                  ))}
+                </div>
+                {nature === "other" && (
+                  <label className="block">
+                    <span className="mb-1.5 block text-xs text-ink-dim">
+                      {t("wizard.natureOtherLabel")}
+                    </span>
+                    <input
+                      type="text"
+                      value={natureOtherDetail}
+                      onChange={(e) => setNatureOtherDetail(e.target.value)}
+                      placeholder={t("wizard.natureOtherPlaceholder")}
+                      maxLength={50}
+                      autoFocus
+                      className="report-wizard-field"
+                    />
+                  </label>
+                )}
               </div>
             )}
 
@@ -1103,6 +1166,7 @@ export default function CrisisReportForm() {
                 infra,
                 infraOtherDetail,
                 crisis: nature,
+                natureOtherDetail,
                 debris,
               })
             }

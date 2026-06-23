@@ -179,18 +179,17 @@ async def admin_export_csv(
     _admin: AdminDep,
     supabase: SupabaseDep,
     crisis_id: str = Query(..., description='Crisis UUID or "all"'),
-    status: str | None = Query(default="validated"),
+    include: str = Query(default="all"),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> Response:
-    include_all = status == "all"
     content, filename = await export_service.export_csv(
         supabase,
         _parse_export_crisis_id(crisis_id),
-        status=status,
+        include_scope=include,
         date_from=date_from,
         date_to=date_to,
-        include_all_statuses=include_all,
+        include_all_statuses=True,
     )
     return _export_response(content, filename, "text/csv")
 
@@ -200,18 +199,17 @@ async def admin_export_geojson(
     _admin: AdminDep,
     supabase: SupabaseDep,
     crisis_id: str = Query(..., description='Crisis UUID or "all"'),
-    status: str | None = Query(default="validated"),
+    include: str = Query(default="all"),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> Response:
-    include_all = status == "all"
     content, filename = await export_service.export_geojson(
         supabase,
         _parse_export_crisis_id(crisis_id),
-        status=status,
+        include_scope=include,
         date_from=date_from,
         date_to=date_to,
-        include_all_statuses=include_all,
+        include_all_statuses=True,
     )
     return _export_response(content, filename, "application/geo+json")
 
@@ -221,17 +219,16 @@ async def admin_export_shapefile(
     _admin: AdminDep,
     supabase: SupabaseDep,
     crisis_id: str = Query(..., description='Crisis UUID or "all"'),
-    status: str | None = Query(default="validated"),
+    include: str = Query(default="all"),
     date_from: datetime | None = Query(default=None),
     date_to: datetime | None = Query(default=None),
 ) -> Response:
-    include_all = status == "all"
     content, filename = await export_service.export_shapefile(
         supabase,
         _parse_export_crisis_id(crisis_id),
-        status=status,
+        include_scope=include,
         date_from=date_from,
         date_to=date_to,
-        include_all_statuses=include_all,
+        include_all_statuses=True,
     )
     return _export_response(content, filename, "application/zip")

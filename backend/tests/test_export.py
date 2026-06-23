@@ -117,7 +117,7 @@ async def test_admin_export_shapefile_success(
     _mock_export_rows(mock_supabase)
 
     response = await client.get(
-        "/api/v1/admin/export/shapefile?crisis_id=crisis-uuid-1&status=all",
+        "/api/v1/admin/export/shapefile?crisis_id=crisis-uuid-1&include=all",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 
@@ -138,7 +138,7 @@ async def test_admin_export_all_crises_csv(
     _mock_export_rows(mock_supabase)
 
     response = await client.get(
-        "/api/v1/admin/export/csv?crisis_id=all&status=all",
+        "/api/v1/admin/export/csv?crisis_id=all&include=all",
         headers={"Authorization": f"Bearer {admin_token}"},
     )
 

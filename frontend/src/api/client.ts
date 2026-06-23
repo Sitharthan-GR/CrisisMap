@@ -282,7 +282,10 @@ export async function fetchFormTemplate(
   return parseApiResponse<FormTemplate>(response);
 }
 
+export type ExportIncludeScope = "all" | "active" | "closed" | "unlisted";
+
 export interface ExportQueryParams {
+  include?: ExportIncludeScope;
   status?: "validated" | "all";
   date_from?: string;
   date_to?: string;
@@ -298,6 +301,9 @@ export interface AdminExportOptions {
 
 function buildExportQuery(params?: ExportQueryParams): string {
   const search = new URLSearchParams();
+  if (params?.include) {
+    search.set("include", params.include);
+  }
   if (params?.status) {
     search.set("status", params.status);
   }

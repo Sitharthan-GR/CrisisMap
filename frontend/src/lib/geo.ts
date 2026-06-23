@@ -85,6 +85,15 @@ export function findNearestCrisisId(
   return bestId ?? crises[0].id;
 }
 
+export function crisisSelectLabel(
+  crisis: { id: string; name: string },
+  nearestId: string | null | undefined,
+  nearestSuffix: string,
+): string {
+  const suffix = nearestId === crisis.id ? ` (${nearestSuffix})` : "";
+  return `${crisis.name}${suffix}`;
+}
+
 /** Pick the smallest preset radius that covers all reports from a center point. */
 export function radiusForReports(
   reports: MapReportPin[],
