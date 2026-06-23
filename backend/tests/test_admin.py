@@ -108,6 +108,35 @@ async def test_admin_create_crisis_requires_auth(client: AsyncClient) -> None:
 
 
 @pytest.mark.asyncio
+async def test_admin_dashboard(
+    client: AsyncClient, mock_supabase, admin_token: str
+) -> None:
+    mock_supabase.rpc.return_value = {
+        "crises": [CRISIS_ROW],
+        "stats": {
+            "crisis-uuid-1": {
+                "total": 10,
+                "sev": {"complete": 3, "partial": 4, "minimal": 3},
+            }
+        },
+        "unlisted_count": 2,
+    }
+
+    response = await client.get(
+        "/api/v1/admin/dashboard",
+        headers={"Authorization": f"Bearer {admin_token}"},
+    )
+
+    assert response.status_code == 200
+    body = response.json()
+    assert body["error"] is None
+    assert len(body["data"]["crises"]) == 1
+    assert body["data"]["stats"]["crisis-uuid-1"]["total"] == 10
+    assert body["data"]["unlisted_count"] == 2
+    mock_supabase.rpc.assert_awaited_with("get_admin_dashboard_data", {})
+
+
+@pytest.mark.asyncio
 async def test_admin_list_all_crises(
     client: AsyncClient, mock_supabase, admin_token: str
 ) -> None:

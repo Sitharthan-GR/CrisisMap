@@ -57,6 +57,12 @@ async def admin_login(payload: AdminLoginRequest, settings: SettingsDep) -> dict
     )
 
 
+@router.get("/dashboard")
+async def admin_dashboard(_admin: AdminDep, supabase: SupabaseDep) -> dict:
+    data = await crisis_service.get_admin_dashboard(supabase)
+    return success(data.model_dump(mode="json"))
+
+
 @router.get("/crises")
 async def admin_list_crises(_admin: AdminDep, supabase: SupabaseDep) -> dict:
     crises = await crisis_service.list_all_crises(supabase)

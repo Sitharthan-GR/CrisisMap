@@ -37,3 +37,20 @@ class AdminCreateCrisisFromReportRequest(BaseModel):
 class AdminAssignReportResponse(BaseModel):
     report: ReportOut
     crisis: CrisisOut | None = None
+
+
+class CrisisSeverityBreakdown(BaseModel):
+    complete: int = 0
+    partial: int = 0
+    minimal: int = 0
+
+
+class CrisisReportStatsOut(BaseModel):
+    total: int = 0
+    sev: CrisisSeverityBreakdown = Field(default_factory=CrisisSeverityBreakdown)
+
+
+class AdminDashboardOut(BaseModel):
+    crises: list[CrisisOut]
+    stats: dict[str, CrisisReportStatsOut] = Field(default_factory=dict)
+    unlisted_count: int = 0

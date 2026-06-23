@@ -201,6 +201,7 @@ Apply `migrations/004_performance.sql` in the Supabase SQL Editor. It adds:
 | `find_location_within_meters(...)` | PostGIS location dedup on report create |
 | `get_photo_counts(uuid[])` | Batch photo counts for export |
 | `get_report_with_photos(uuid)` | Report + location + photos in one call |
+| `get_admin_dashboard_data()` | Admin crises table stats + unlisted count in one call |
 
 Quick test in SQL Editor after applying:
 

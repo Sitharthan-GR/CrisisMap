@@ -100,6 +100,32 @@ export interface AdminCrisisCreateInput {
   form_template_id?: string | null;
 }
 
+export interface AdminDashboardStats {
+  total: number;
+  sev: {
+    complete: number;
+    partial: number;
+    minimal: number;
+  };
+}
+
+export interface AdminDashboard {
+  crises: Crisis[];
+  stats: Record<string, AdminDashboardStats>;
+  unlisted_count: number;
+}
+
+export async function adminFetchDashboard(
+  token: string,
+  signal?: AbortSignal,
+): Promise<AdminDashboard> {
+  const response = await fetch(`${API_BASE_URL}/admin/dashboard`, {
+    headers: adminHeaders(token),
+    signal,
+  });
+  return parseApiResponse<AdminDashboard>(response);
+}
+
 export async function adminFetchCrises(
   token: string,
   signal?: AbortSignal,

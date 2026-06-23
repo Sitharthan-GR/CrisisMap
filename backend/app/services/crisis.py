@@ -4,6 +4,7 @@ from typing import Any
 import structlog
 
 from app.core.exceptions import CrisisClosedError, NotFoundError, ValidationError
+from app.schemas.admin import AdminDashboardOut, CrisisReportStatsOut
 from app.schemas.crisis import CrisisCreate, CrisisListQuery, CrisisOut, CrisisStatus, CrisisUpdate, ReportingOptionsOut
 from app.services.geocoding import haversine_meters
 from app.services.supabase import SupabaseClient
@@ -142,6 +143,23 @@ async def list_all_crises(supabase: SupabaseClient) -> list[CrisisOut]:
         limit=500,
     )
     return [_row_to_crisis(row) for row in rows]
+
+
+async def get_admin_dashboard(supabase: SupabaseClient) -> AdminDashboardOut:
+    data = await supabase.rpc("get_admin_dashboard_data", {})
+    if not data:
+        return AdminDashboardOut(crises=[], stats={}, unlisted_count=0)
+
+    crises = [_row_to_crisis(row) for row in (data.get("crises") or [])]
+    stats = {
+        crisis_id: CrisisReportStatsOut(**values)
+        for crisis_id, values in (data.get("stats") or {}).items()
+    }
+    return AdminDashboardOut(
+        crises=crises,
+        stats=stats,
+        unlisted_count=int(data.get("unlisted_count") or 0),
+    )
 
 
 async def get_crisis(supabase: SupabaseClient, crisis_id: str) -> CrisisOut:

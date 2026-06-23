@@ -16,7 +16,7 @@ import {
   ApiError,
   adminCreateCrisis,
   adminCreateCrisisFromReport,
-  adminFetchCrises,
+  adminFetchDashboard,
   adminLogin,
   adminUpdateCrisis,
   fetchReverseGeocode,
@@ -27,10 +27,7 @@ import {
   isAdminAuthenticated,
   setAdminToken,
 } from "../lib/adminAuth";
-import {
-  fetchAllCrisisReportStats,
-  type CrisisReportStats,
-} from "../lib/adminCrisisStats";
+import { type CrisisReportStats } from "../lib/adminCrisisStats";
 import { shortAddress } from "../lib/address";
 import type { Crisis, CrisisStatus, ReportDetail } from "../types/report";
 import AdminCrisisPanel, {
@@ -87,12 +84,10 @@ export default function AdminPage() {
     setListLoading(true);
     setListError(null);
     try {
-      const data = await adminFetchCrises(token);
-      setCrises(data);
-
-      const listed = data.filter((c) => !c.is_unlisted);
-      const nextStats = await fetchAllCrisisReportStats(listed.map((c) => c.id));
-      setStats(nextStats);
+      const data = await adminFetchDashboard(token);
+      setCrises(data.crises);
+      setStats(data.stats);
+      setUnlistedCount(data.unlisted_count);
       setAuthenticated(true);
     } catch (err) {
       if (err instanceof ApiError && err.code === "UNAUTHORIZED") {
