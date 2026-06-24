@@ -1,3 +1,4 @@
+import asyncio
 import csv
 import io
 import json
@@ -8,10 +9,13 @@ from datetime import datetime, timezone
 from typing import Any
 
 import shapefile
+import structlog
 
 from app.services.crisis import list_all_crises
 from app.services.reports import list_reports_for_export
 from app.services.supabase import SupabaseClient
+
+logger = structlog.get_logger(__name__)
 
 CSV_COLUMNS = [
     "crisis_id",
@@ -39,6 +43,7 @@ CSV_COLUMNS = [
     "submission_channel",
     "status",
     "photo_count",
+    "photo_urls",
 ]
 
 WGS84_PRJ = (
@@ -74,15 +79,43 @@ SHAPEFILE_FIELDS: list[tuple[str, str, int, int]] = [
 ]
 
 
-async def _photo_counts(supabase: SupabaseClient, report_ids: list[str]) -> dict[str, int]:
+async def _photo_urls_by_report(
+    supabase: SupabaseClient, report_ids: list[str]
+) -> dict[str, list[str]]:
     if not report_ids:
         return {}
 
-    rows = await supabase.rpc("get_photo_counts", {"p_report_ids": report_ids})
-    counts = {report_id: 0 for report_id in report_ids}
-    for row in rows or []:
-        counts[row["report_id"]] = int(row["photo_count"])
-    return counts
+    photos, _ = await supabase.select(
+        "photo",
+        columns="report_id,storage_url",
+        filters=[("report_id", f"in.({','.join(report_ids)})")],
+        order="uploaded_at.asc",
+        limit=50_000,
+    )
+
+    paths_by_report: dict[str, list[str]] = {report_id: [] for report_id in report_ids}
+    unique_paths: set[str] = set()
+    for photo in photos or []:
+        report_id = photo["report_id"]
+        path = photo["storage_url"]
+        paths_by_report.setdefault(report_id, []).append(path)
+        unique_paths.add(path)
+
+    async def sign(path: str) -> tuple[str, str | None]:
+        try:
+            url = await supabase.create_signed_url(path)
+            return path, url
+        except Exception:
+            logger.warning("export_photo_sign_failed", storage_path=path)
+            return path, None
+
+    signed_pairs = await asyncio.gather(*(sign(path) for path in unique_paths))
+    signed_map = {path: url for path, url in signed_pairs if url}
+
+    return {
+        report_id: [signed_map[path] for path in paths if path in signed_map]
+        for report_id, paths in paths_by_report.items()
+    }
 
 
 def _export_filename(crisis_key: str, extension: str) -> str:
@@ -101,7 +134,7 @@ async def _crisis_name_map(supabase: SupabaseClient) -> dict[str, str]:
 
 def _flatten_export_row(
     row: dict[str, Any],
-    photo_count: int,
+    photo_urls: list[str],
     crisis_names: dict[str, str],
 ) -> dict[str, Any]:
     location = row.get("location") or {}
@@ -131,7 +164,8 @@ def _flatten_export_row(
         "source_language": row.get("source_language"),
         "submission_channel": row["submission_channel"],
         "status": row["status"],
-        "photo_count": photo_count,
+        "photo_count": len(photo_urls),
+        "photo_urls": photo_urls,
     }
 
 
@@ -154,10 +188,11 @@ async def _load_export_rows(
         date_to=date_to,
         include_all_statuses=include_all_statuses,
     )
-    photo_counts = await _photo_counts(supabase, [row["id"] for row in rows])
+    report_ids = [row["id"] for row in rows]
+    photo_urls_by_report = await _photo_urls_by_report(supabase, report_ids)
     crisis_names = await _crisis_name_map(supabase)
     return [
-        _flatten_export_row(row, photo_counts.get(row["id"], 0), crisis_names)
+        _flatten_export_row(row, photo_urls_by_report.get(row["id"], []), crisis_names)
         for row in rows
     ]
 
@@ -186,7 +221,16 @@ async def export_csv(
     writer = csv.DictWriter(buffer, fieldnames=CSV_COLUMNS)
     writer.writeheader()
     for row in flat_rows:
-        writer.writerow({column: row.get(column) for column in CSV_COLUMNS})
+        writer.writerow(
+            {
+                column: (
+                    "; ".join(row[column])
+                    if column == "photo_urls" and isinstance(row.get(column), list)
+                    else row.get(column)
+                )
+                for column in CSV_COLUMNS
+            }
+        )
 
     return buffer.getvalue(), _export_filename(_crisis_key(crisis_id), "csv")
 

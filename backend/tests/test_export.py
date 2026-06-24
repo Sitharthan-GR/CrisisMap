@@ -63,15 +63,25 @@ def _mock_export_rows(mock_supabase: AsyncMock) -> None:
         if table == "report":
             return ([EXPORT_REPORT_ROW], 1)
         if table == "photo":
-            return ([{"id": "photo-1"}], 1)
+            return (
+                [
+                    {
+                        "id": "photo-1",
+                        "report_id": "report-uuid-1",
+                        "storage_url": "crisis-uuid-1/report-uuid-1/original_photo-1.jpg",
+                    }
+                ],
+                1,
+            )
         if table == "crisis":
             return ([CRISIS_ROW], 1)
         return ([], 0)
 
     mock_supabase.select.side_effect = select_side_effect
-    mock_supabase.rpc.return_value = [
-        {"report_id": "report-uuid-1", "photo_count": 1},
-    ]
+    mock_supabase.create_signed_url.return_value = (
+        "https://test-project.supabase.co/storage/v1/object/sign/rapida-photos/"
+        "crisis-uuid-1/report-uuid-1/original_photo-1.jpg?token=test"
+    )
 
 
 @pytest.mark.asyncio
@@ -85,6 +95,8 @@ async def test_export_csv(client: AsyncClient, mock_supabase: AsyncMock) -> None
     assert "report-uuid-1" in response.text
     assert "Knox County" in response.text
     assert "crisis_name" in response.text
+    assert "photo_urls" in response.text
+    assert "original_photo-1.jpg" in response.text
 
 
 @pytest.mark.asyncio
@@ -99,6 +111,8 @@ async def test_export_geojson(client: AsyncClient, mock_supabase: AsyncMock) -> 
     assert response.headers["content-type"].startswith("application/geo+json")
     assert "FeatureCollection" in response.text
     assert "report-uuid-1" in response.text
+    assert "photo_urls" in response.text
+    assert "original_photo-1.jpg" in response.text
 
 
 @pytest.mark.asyncio
