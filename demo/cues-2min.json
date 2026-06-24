@@ -1,0 +1,52 @@
+[
+  {
+    "id": "01-admin",
+    "at_ms": 0,
+    "text": "We start in the admin portal. Click Admin, then log in using the admin password, admin one two three. After login, the admin dashboard opens. From here, the team can create a new crisis, manage incoming reports, and keep the public map connected to the correct active crisis."
+  },
+  {
+    "id": "02-report",
+    "at_ms": 23062,
+    "text": "Now we return to the public dashboard. Click Report damage to submit a field report. The first crisis shown is the nearest crisis, so users can report quickly. If they cannot find the crisis they need, they can select Other. That report is marked as unlisted for admin review."
+  },
+  {
+    "id": "03-detail",
+    "at_ms": 43752,
+    "text": "Users can search a location, use my location, or drop a pin to focus on the right area. Opening a report shows the damage type, severity, notes, media, and location. From the report detail screen, users can also share the report using the share option button."
+  },
+  {
+    "id": "04-history",
+    "at_ms": 61142,
+    "text": "The history tab shows earlier reports for the same building, helping reviewers compare repeated damage over time."
+  },
+  {
+    "id": "05-export",
+    "at_ms": 69126,
+    "text": "Export data is available only inside the admin portal, so public users cannot download the report dataset."
+  },
+  {
+    "id": "06-form-manager",
+    "at_ms": 77500,
+    "text": "Form Manager is also an admin-only feature."
+  },
+  {
+    "id": "07-create-form",
+    "at_ms": 79600,
+    "text": "Here, admins create custom report form question templates. They can add text questions, dropdowns, and radio buttons, like Yes or No options. This helps each crisis collect the right information instead of using one fixed form for every situation."
+  },
+  {
+    "id": "08-other-start",
+    "at_ms": 102200,
+    "text": "This shows the Other crisis reporting path."
+  },
+  {
+    "id": "09-other-review",
+    "at_ms": 106200,
+    "text": "When Other is selected, the report still gets submitted. Admins can review it later, assign it to the correct crisis, or edit and delete reports when needed."
+  },
+  {
+    "id": "10-offline",
+    "at_ms": 114510,
+    "text": "At the end, even with low or no internet, reports save locally and sync once the device is online again."
+  }
+]

@@ -7,6 +7,9 @@
     "record:full": "node record-full-demo.mjs",
     "voiceover": "node build-voiceover.mjs",
     "assemble": "node assemble-demo.mjs",
+    "voiceover:2min": "node build-2min-voiceover.mjs",
+    "assemble:2min": "node assemble-2min-demo.mjs",
+    "demo:2min": "node build-2min-voiceover.mjs && node assemble-2min-demo.mjs",
     "demo": "node record-full-demo.mjs && node build-voiceover.mjs && node assemble-demo.mjs"
   },
   "devDependencies": {

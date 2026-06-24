@@ -1,4 +1,4 @@
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, ExternalLink, PlayCircle } from "lucide-react";
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import type { MapMarkerIconKey } from "../lib/mapMarkers";
@@ -8,6 +8,7 @@ import {
   LEGEND_DAMAGE_LEVELS,
   markerIconHtml,
 } from "../lib/mapMarkers";
+import { DEMO_VIDEO_URL } from "../lib/constants";
 import LanguageSwitcher from "./LanguageSwitcher";
 import ThemeToggle from "./ThemeToggle";
 
@@ -58,6 +59,34 @@ export default function MapHelpPage() {
       <main className="map-help-main">
         <div className="map-help-card">
           <p className="map-help-intro">{t("help.intro")}</p>
+
+          {DEMO_VIDEO_URL ? (
+            <section className="map-help-section map-help-demo">
+              <h2>{t("help.demoTitle")}</h2>
+              <p className="map-help-section__lead">{t("help.demoLead")}</p>
+              <div className="map-help-demo__player">
+                <video
+                  className="map-help-demo__video"
+                  controls
+                  preload="metadata"
+                  playsInline
+                  src={DEMO_VIDEO_URL}
+                >
+                  {t("help.demoFallback")}
+                </video>
+              </div>
+              <a
+                className="map-help-demo__link"
+                href={DEMO_VIDEO_URL}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                <PlayCircle className="h-4 w-4" aria-hidden />
+                {t("help.demoOpen")}
+                <ExternalLink className="h-3.5 w-3.5" aria-hidden />
+              </a>
+            </section>
+          ) : null}
 
           <section className="map-help-section">
             <h2>{t("help.damageTitle")}</h2>

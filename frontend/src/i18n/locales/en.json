@@ -29,7 +29,11 @@
     "crisisTypeLead": "Crises are grouped into three types in the admin console. This does not change pin icons on the map.",
     "crisisTypeNatural": "Earthquakes, floods, wildfires, storms, and other natural events.",
     "crisisTypeTech": "Industrial accidents, explosions, chemical leaks, and infrastructure failures.",
-    "crisisTypeHuman": "Conflict, displacement, and other human-caused crises."
+    "crisisTypeHuman": "Conflict, displacement, and other human-caused crises.",
+    "demoTitle": "Product demo video",
+    "demoLead": "A two-minute narrated walkthrough covers admin login, crisis creation, field reporting, version history, form builder, export, and offline sync.",
+    "demoOpen": "Open demo video in a new tab",
+    "demoFallback": "Your browser does not support embedded video."
   },
   "dashboard": {
     "crisisSearchArea": "Crisis & search area",
