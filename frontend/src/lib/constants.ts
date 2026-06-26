@@ -18,9 +18,13 @@ export const RADIUS_OPTIONS = [
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL ?? "/api/v1";
 
-/** Narrated product walkthrough (help page). Override with VITE_DEMO_VIDEO_URL. */
-export const DEMO_VIDEO_URL =
-  import.meta.env.VITE_DEMO_VIDEO_URL ?? "/crisismap-demo.mp4";
+import type { DemoVideoSource } from "./demoVideo";
+import { resolveDemoVideoSource } from "./demoVideo";
+
+/** Narrated product walkthrough (help page). Set VITE_DEMO_VIDEO_URL to a hosted link. */
+export const DEMO_VIDEO_SOURCE: DemoVideoSource | null = resolveDemoVideoSource(
+  import.meta.env.VITE_DEMO_VIDEO_URL,
+);
 
 export const REPORTER_NAME_STORAGE_KEY = "rapida_reporter_name";
 

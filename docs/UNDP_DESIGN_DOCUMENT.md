@@ -153,7 +153,7 @@ Pair with a built frontend (`cd frontend && npm run build`) served by any static
 ### 3.2 Create a new crisis
 
 1. Click **New crisis**
-2. Enter **name** (e.g. “East Tennessee Storm 2026”)
+2. Enter **name** (e.g. “Jakarta Monsoon Floods 2026”)
 3. Select **type**: natural hazard, technological, or human-made
 4. Choose **subtype** (flood, earthquake, explosion, etc.)
 5. Set **onset date/time**

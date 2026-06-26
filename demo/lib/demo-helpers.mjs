@@ -2,10 +2,16 @@
 
 export const ADMIN_PASSWORD = process.env.ADMIN_PASSWORD ?? "admin123";
 export const BASE_URL = process.env.DEMO_BASE_URL ?? "http://localhost:5173";
+/** Seeded demo crisis — see backend/scripts/seed_demo_data.py */
 export const CRISIS_NAME =
-  process.env.DEMO_CRISIS_NAME ?? "East Tennessee Storm 2026";
+  process.env.DEMO_CRISIS_NAME ?? "Jakarta Monsoon Floods 2026";
 export const FORM_TEMPLATE_NAME =
-  process.env.DEMO_FORM_NAME ?? "Storm Damage Checklist";
+  process.env.DEMO_FORM_NAME ?? "Flood Impact Assessment";
+export const DEMO_GEOLOCATION = {
+  latitude: -6.2088,
+  longitude: 106.8456,
+};
+export const DEMO_REPORT_LOCATION = "Kampung Melayu, Jakarta";
 
 /** Istanbul Karaköy stack — latest version (v3) from seed data. */
 export const ISTANBUL_HISTORY_REPORT_ID =

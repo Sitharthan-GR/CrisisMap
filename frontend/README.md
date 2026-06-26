@@ -45,6 +45,21 @@ Open **http://localhost:5173**
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `VITE_API_URL` | `/api/v1` | API base URL (proxied to `:8000` in dev) |
+| `VITE_DEMO_VIDEO_URL` | *(unset)* | Help page demo video — hosted MP4/WebM URL, or YouTube/Vimeo link |
+
+### Demo video on the help page
+
+Upload your narrated demo (`demo/output/crisismap-full-demo.mp4`) to a public host, then set `VITE_DEMO_VIDEO_URL` in `frontend/.env`:
+
+```bash
+# Supabase Storage (public bucket)
+VITE_DEMO_VIDEO_URL=https://YOUR_PROJECT.supabase.co/storage/v1/object/public/YOUR_BUCKET/crisismap-demo.mp4
+
+# YouTube (unlisted)
+VITE_DEMO_VIDEO_URL=https://www.youtube.com/watch?v=YOUR_VIDEO_ID
+```
+
+Rebuild or restart `npm run dev` after changing `.env`. If unset, the video section is hidden on `/help`.
 
 ## Build for production
 

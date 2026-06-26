@@ -10,6 +10,8 @@ import {
   ADMIN_PASSWORD,
   BASE_URL,
   CRISIS_NAME,
+  DEMO_GEOLOCATION,
+  DEMO_REPORT_LOCATION,
   ISTANBUL_HISTORY_REPORT_ID,
   createCueLogger,
   pause,
@@ -39,48 +41,21 @@ async function chapterIntro(page, cue) {
 
 async function chapterCreateCrisis(page, cue) {
   cue.mark("create-crisis", narration["create-crisis"]);
-  await showCaption(page, "Admin: create a crisis");
+  await showCaption(page, "Admin: open an active crisis");
 
-  await page.getByRole("button", { name: "New crisis" }).click();
-  await page.getByRole("heading", { name: "New crisis" }).waitFor();
-  await pause(page, 900);
+  await page.getByText(CRISIS_NAME).first().click();
+  await pause(page, 1200);
 
-  await page.locator("#admin-f-name").fill(CRISIS_NAME);
-  await pause(page, 500);
-
-  const subtypeField = page.locator("#admin-f-sub");
-  await subtypeField.click();
-  await subtypeField.fill("storm");
-  await page.getByRole("option", { name: /storm/i }).first().click();
-  await pause(page, 600);
-
-  const formSelect = page.locator("#admin-f-form");
-  await formSelect.click();
-  await pause(page, 400);
-  const templateOptions = await formSelect.locator("option").allTextContents();
   await showOverlay(
     page,
-    `<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">Report form template options</div>
-     ${templateOptions
-       .map(
-         (opt) =>
-           `<div style="margin:4px 0;padding:6px 10px;background:rgba(59,130,246,0.15);border-radius:6px;font-size:14px">${opt}</div>`,
-       )
-       .join("")}`,
+    `<div style="font-size:13px;color:#94a3b8;margin-bottom:8px">Active crisis</div>
+     <div style="font-size:16px">${CRISIS_NAME}</div>
+     <div style="font-size:12px;color:#94a3b8;margin-top:6px">Custom form template attached for field teams</div>`,
     "bottom-center",
   );
-  await pause(page, 2800);
+  await pause(page, 2400);
   await removeOverlay(page);
-
-  await formSelect.selectOption({ label: "Standard damage report (default)" });
   await pause(page, 800);
-
-  await searchAndPickPlace(page, "Knoxville, Tennessee");
-  await pause(page, 1000);
-
-  await page.getByRole("button", { name: "Create crisis" }).click();
-  await page.getByText(CRISIS_NAME).first().waitFor({ timeout: 20000 });
-  await pause(page, 2000);
 }
 
 async function chapterUserReport(page, cue) {
@@ -112,9 +87,9 @@ async function chapterUserReport(page, cue) {
   demoCrisisId = await crisisSelect.inputValue();
 
   await fillReportWizard(page, {
-    locationQuery: "Market Square, Knoxville",
+    locationQuery: DEMO_REPORT_LOCATION,
     description:
-      "Partial roof damage and water intrusion after overnight storms.",
+      "Standing water in ground-floor rooms after overnight monsoon rainfall.",
   });
   await pause(page, 1800);
 }
@@ -161,7 +136,7 @@ async function chapterVersionHistory(page, cue) {
 }
 
 async function seedPendingReport(page, crisisId) {
-  await page.evaluate(async (cid) => {
+  await page.evaluate(async ({ cid, geo }) => {
     const item = {
       id: crypto.randomUUID(),
       status: "pending",
@@ -178,8 +153,8 @@ async function seedPendingReport(page, crisisId) {
         submission_channel: "web",
         collected_at: new Date().toISOString(),
         location: {
-          latitude: 35.9606,
-          longitude: -83.9207,
+          latitude: geo.latitude,
+          longitude: geo.longitude,
           location_method: "gps",
         },
       },
@@ -204,7 +179,7 @@ async function seedPendingReport(page, crisisId) {
       };
       req.onerror = () => reject(req.error);
     });
-  }, crisisId);
+  }, { cid: crisisId, geo: DEMO_GEOLOCATION });
 }
 
 async function chapterOfflineSync(page, cue) {
@@ -212,17 +187,16 @@ async function chapterOfflineSync(page, cue) {
 
   let crisisId = demoCrisisId;
   if (!crisisId) {
-    crisisId = await page.evaluate(async () => {
+    crisisId = await page.evaluate(async ({ geo, crisisName }) => {
       const response = await fetch(
-        "/api/v1/crises/reporting-options?lat=35.9606&lng=-83.9207",
+        `/api/v1/crises/reporting-options?lat=${geo.latitude}&lng=${geo.longitude}`,
       );
       const body = await response.json();
       const data = body.data ?? body;
       const match =
-        data.crises?.find((c) => c.name?.includes("East Tennessee")) ??
-        data.crises?.[0];
+        data.crises?.find((c) => c.name === crisisName) ?? data.crises?.[0];
       return match?.id ?? null;
-    });
+    }, { geo: DEMO_GEOLOCATION, crisisName: CRISIS_NAME });
   }
 
   await page.goto(`${BASE_URL}/report`, { waitUntil: "domcontentloaded" });
@@ -326,7 +300,7 @@ async function main() {
   const context = await browser.newContext({
     viewport: { width: 1280, height: 720 },
     recordVideo: { dir: OUTPUT_DIR, size: { width: 1280, height: 720 } },
-    geolocation: { latitude: 35.9606, longitude: -83.9207 },
+    geolocation: DEMO_GEOLOCATION,
     permissions: ["geolocation"],
     colorScheme: "dark",
     acceptDownloads: true,

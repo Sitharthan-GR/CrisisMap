@@ -29,7 +29,7 @@ Apply SQL migrations in your Supabase SQL editor (files in `backend/migrations/`
 ```bash
 cd frontend
 npm install
-cp .env.example .env   # optional — defaults work with the Vite dev proxy
+cp .env.example .env   # set VITE_DEMO_VIDEO_URL here (not in backend/.env)
 ```
 
 ## Run the project

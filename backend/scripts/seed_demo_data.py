@@ -848,6 +848,77 @@ def _supabase_headers(service_key: str) -> dict[str, str]:
     }
 
 
+AD_HOC_DEMO_CRISIS_NAMES = frozenset({
+    "East Tennessee Storm 2026",
+    "Demo Coastal Storm 2026",
+})
+
+
+def delete_ad_hoc_demo_crises(client: httpx.Client, settings: Any) -> None:
+    """Remove ad-hoc crises created by older demo recording scripts."""
+    service_key = settings.supabase_service_role_key.get_secret_value()
+    rest = settings.supabase_rest_url
+    bucket = settings.supabase_storage_bucket
+    storage_base = f"{settings.supabase_url}/storage/v1"
+    headers = _supabase_headers(service_key)
+    minimal_headers = {**headers, "Prefer": "return=minimal"}
+
+    crisis_resp = client.get(
+        f"{rest}/crisis",
+        params={"select": "id,name,is_unlisted", "is_unlisted": "eq.false"},
+        headers=headers,
+    )
+    if crisis_resp.status_code >= 400:
+        return
+
+    targets = [
+        crisis for crisis in crisis_resp.json() if crisis.get("name") in AD_HOC_DEMO_CRISIS_NAMES
+    ]
+    if not targets:
+        return
+
+    print(f"Removing {len(targets)} ad-hoc demo crisis(es)…")
+    target_ids = [crisis["id"] for crisis in targets]
+
+    for crisis_id in target_ids:
+        report_resp = client.get(
+            f"{rest}/report",
+            params={"select": "id", "crisis_id": f"eq.{crisis_id}"},
+            headers=headers,
+        )
+        if report_resp.status_code >= 400:
+            continue
+        report_ids = [row["id"] for row in report_resp.json()]
+        if not report_ids:
+            continue
+
+        photo_resp = client.get(
+            f"{rest}/photo",
+            params={"select": "id,storage_url", "report_id": f"in.({','.join(report_ids)})"},
+            headers=headers,
+        )
+        if photo_resp.status_code < 400:
+            for photo in photo_resp.json():
+                path = photo.get("storage_url")
+                if path:
+                    client.delete(f"{storage_base}/object/{bucket}/{path}", headers=headers)
+            client.delete(
+                f"{rest}/photo",
+                params={"report_id": f"in.({','.join(report_ids)})"},
+                headers=minimal_headers,
+            )
+
+        client.delete(
+            f"{rest}/report",
+            params={"crisis_id": f"eq.{crisis_id}"},
+            headers=minimal_headers,
+        )
+
+    for crisis in targets:
+        client.delete(f"{rest}/crisis", params={"id": f"eq.{crisis['id']}"}, headers=minimal_headers)
+        print(f"  deleted crisis: {crisis['name']}")
+
+
 def wipe_demo_data(client: httpx.Client, settings: Any) -> None:
     """Remove all reports, locations, photos, and listed crises. Keeps unlisted crisis row."""
     service_key = settings.supabase_service_role_key.get_secret_value()
@@ -1169,6 +1240,7 @@ def print_plan() -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Seed curated CrisisMap demo data")
     parser.add_argument("--api-url", default="http://localhost:8000/api/v1")
+    parser.add_argument("--purge-ad-hoc", action="store_true", help="Delete ad-hoc demo crises only")
     parser.add_argument("--no-wipe", action="store_true", help="Skip wiping existing data")
     parser.add_argument("--fetch-images", action="store_true", help="Re-download demo photos")
     parser.add_argument("--dry-run", action="store_true")
@@ -1179,6 +1251,12 @@ def main() -> int:
         return 0
 
     settings = get_settings()
+
+    if args.purge_ad_hoc:
+        with httpx.Client(base_url=args.api_url.rstrip("/"), timeout=180.0) as client:
+            delete_ad_hoc_demo_crises(client, settings)
+        return 0
+
     if not settings.admin_password:
         print("Error: ADMIN_PASSWORD must be set in backend/.env", file=sys.stderr)
         return 1
@@ -1198,6 +1276,7 @@ def main() -> int:
 
     with httpx.Client(base_url=args.api_url.rstrip("/"), timeout=180.0) as client:
         apply_migration_007(settings)
+        delete_ad_hoc_demo_crises(client, settings)
 
         if not args.no_wipe:
             wipe_demo_data(client, settings)
