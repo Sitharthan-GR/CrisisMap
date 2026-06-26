@@ -1,26 +1,27 @@
 import { ExternalLink, PlayCircle } from "lucide-react";
 import { useTranslation } from "react-i18next";
-import { DEMO_VIDEO_SOURCE } from "../../lib/constants";
+import { useDemoVideoSource } from "../../hooks/useDemoVideoSource";
 
 export default function DemoVideoPlayer() {
   const { t } = useTranslation();
+  const demoVideoSource = useDemoVideoSource();
 
-  if (!DEMO_VIDEO_SOURCE) return null;
+  if (!demoVideoSource) return null;
 
   const openUrl =
-    DEMO_VIDEO_SOURCE.kind === "embed"
-      ? DEMO_VIDEO_SOURCE.openUrl
-      : DEMO_VIDEO_SOURCE.url;
+    demoVideoSource.kind === "embed"
+      ? demoVideoSource.openUrl
+      : demoVideoSource.url;
 
   return (
     <section className="map-help-section map-help-demo">
       <h2>{t("help.demoTitle")}</h2>
       <p className="map-help-section__lead">{t("help.demoLead")}</p>
       <div className="map-help-demo__player">
-        {DEMO_VIDEO_SOURCE.kind === "embed" ? (
+        {demoVideoSource.kind === "embed" ? (
           <iframe
             className="map-help-demo__embed"
-            src={DEMO_VIDEO_SOURCE.url}
+            src={demoVideoSource.url}
             title={t("help.demoTitle")}
             allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
             allowFullScreen
@@ -31,7 +32,7 @@ export default function DemoVideoPlayer() {
             controls
             preload="metadata"
             playsInline
-            src={DEMO_VIDEO_SOURCE.url}
+            src={demoVideoSource.url}
           >
             {t("help.demoFallback")}
           </video>

@@ -49,17 +49,33 @@ Open **http://localhost:5173**
 
 ### Demo video on the help page
 
-Upload your narrated demo (`demo/output/crisismap-full-demo.mp4`) to a public host, then set `VITE_DEMO_VIDEO_URL` in `frontend/.env`:
+The video appears on **Help → How to use** (not the Map legend tab).
 
-```bash
-# Supabase Storage (public bucket)
-VITE_DEMO_VIDEO_URL=https://YOUR_PROJECT.supabase.co/storage/v1/object/public/YOUR_BUCKET/crisismap-demo.mp4
+**Option A — runtime config (no rebuild needed to change URL)**
 
-# YouTube (unlisted)
-VITE_DEMO_VIDEO_URL=https://www.youtube.com/watch?v=YOUR_VIDEO_ID
+Edit `frontend/public/demo-config.json` and redeploy:
+
+```json
+{
+  "demoVideoUrl": "https://YOUR_HOST/path/to/crisismap-demo.mp4"
+}
 ```
 
-Rebuild or restart `npm run dev` after changing `.env`. If unset, the video section is hidden on `/help`.
+**Option B — Vite env var (requires rebuild)**
+
+Set in `frontend/.env` locally or in Vercel **before** the build runs:
+
+```bash
+VITE_DEMO_VIDEO_URL=https://YOUR_PROJECT.supabase.co/storage/v1/object/public/YOUR_BUCKET/crisismap-demo.mp4
+```
+
+On Vercel:
+
+1. **Root Directory** must be `frontend` (Project Settings → General).
+2. Add `VITE_DEMO_VIDEO_URL` for **Production** (and Preview if you use preview deploys).
+3. **Redeploy** after adding or changing the variable — Vite bakes `VITE_*` values into the JS at build time; changing env alone does not update a live deployment.
+
+Build-time env overrides `demo-config.json` when both are set.
 
 ## Build for production
 
