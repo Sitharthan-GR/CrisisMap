@@ -193,6 +193,8 @@
     "title": "管理",
     "subtitle": "管理危机及状态",
     "loginSubtitle": "登录以管理危机",
+    "demoPasswordHint": "演示密码：",
+    "demoPassword": "admin123",
     "passwordLabel": "管理员密码",
     "signIn": "登录",
     "signingIn": "登录中…",

@@ -319,8 +319,13 @@ export default function AdminPage() {
             <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>
               {t("admin.title")}
             </h1>
-            <p style={{ margin: "0 0 20px", color: "var(--text-dim)", fontSize: 14 }}>
+            <p style={{ margin: "0 0 16px", color: "var(--text-dim)", fontSize: 14 }}>
               {t("admin.loginSubtitle")}
+            </p>
+
+            <p className="admin-login-demo-hint" role="note">
+              {t("admin.demoPasswordHint")}{" "}
+              <code className="admin-login-demo-password">{t("admin.demoPassword")}</code>
             </p>
 
             <label className="admin-fieldset">

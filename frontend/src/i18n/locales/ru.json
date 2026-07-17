@@ -193,6 +193,8 @@
     "title": "Администрирование",
     "subtitle": "Управление кризисами и их статусом",
     "loginSubtitle": "Войдите для управления кризисами",
+    "demoPasswordHint": "Демо-пароль:",
+    "demoPassword": "admin123",
     "passwordLabel": "Пароль администратора",
     "signIn": "Войти",
     "signingIn": "Вход…",

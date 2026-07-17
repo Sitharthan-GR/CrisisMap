@@ -193,6 +193,8 @@
     "title": "Administration",
     "subtitle": "Gérer les crises et leur statut",
     "loginSubtitle": "Connectez-vous pour gérer les crises",
+    "demoPasswordHint": "Mot de passe de démo :",
+    "demoPassword": "admin123",
     "passwordLabel": "Mot de passe admin",
     "signIn": "Se connecter",
     "signingIn": "Connexion…",

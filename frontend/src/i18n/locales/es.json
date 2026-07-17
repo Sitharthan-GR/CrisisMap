@@ -193,6 +193,8 @@
     "title": "Administración",
     "subtitle": "Gestionar crisis y su estado",
     "loginSubtitle": "Inicie sesión para gestionar crisis",
+    "demoPasswordHint": "Contraseña de demostración:",
+    "demoPassword": "admin123",
     "passwordLabel": "Contraseña de admin",
     "signIn": "Iniciar sesión",
     "signingIn": "Iniciando sesión…",

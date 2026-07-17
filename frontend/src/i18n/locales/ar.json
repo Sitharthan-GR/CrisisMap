@@ -193,6 +193,8 @@
     "title": "المسؤول",
     "subtitle": "إدارة الأزمات وحالتها",
     "loginSubtitle": "سجّل الدخول لإدارة الأزمات",
+    "demoPasswordHint": "كلمة مرور العرض التوضيحي:",
+    "demoPassword": "admin123",
     "passwordLabel": "كلمة مرور المسؤول",
     "signIn": "تسجيل الدخول",
     "signingIn": "جارٍ تسجيل الدخول…",

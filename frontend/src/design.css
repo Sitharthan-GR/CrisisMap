@@ -3527,6 +3527,31 @@ body.pin-drop-focus .map-help-btn {
   box-shadow: var(--shadow-sm);
 }
 
+.admin-login-demo-hint {
+  margin: 0 0 20px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface));
+  color: var(--text-dim);
+  font-size: 13px;
+  line-height: 1.45;
+}
+
+.admin-login-demo-password {
+  display: inline-block;
+  margin-left: 2px;
+  padding: 1px 7px;
+  border-radius: 6px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  color: var(--text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 0.02em;
+}
+
 @media (max-width: 900px) {
   .admin-topbar .hide-sm {
     display: none;
