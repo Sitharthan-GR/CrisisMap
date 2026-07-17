@@ -6,6 +6,7 @@ import Dashboard from "./components/Dashboard";
 import MapHelpPage from "./components/MapHelpPage";
 import MobileAppLayout from "./components/MobileAppLayout";
 import OfflineSyncBanner from "./components/OfflineSyncBanner";
+import { Analytics } from '@vercel/analytics/react';
 
 export default function App() {
   return (
@@ -22,6 +23,7 @@ export default function App() {
         <Route path="/admin/forms" element={<AdminFormManager />} />
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
+      <Analytics />
     </BrowserRouter>
   );
 }
