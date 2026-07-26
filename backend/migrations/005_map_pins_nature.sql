@@ -1,4 +1,11 @@
 -- Add nature_of_crisis to map pin RPC for cause-based marker icons.
+-- Must DROP first: CREATE OR REPLACE cannot change OUT/RETURNS TABLE columns
+-- (004 defined this without nature_of_crisis).
+
+DROP FUNCTION IF EXISTS get_crisis_map_pins(
+    uuid, text, text, text,
+    double precision, double precision, double precision, double precision
+);
 
 CREATE OR REPLACE FUNCTION get_crisis_map_pins(
     p_crisis_id uuid,
