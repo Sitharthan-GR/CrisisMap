@@ -2260,28 +2260,14 @@ body.pin-drop-focus .map-help-btn {
   }
 }
 
-@media (max-width: 640px) {
+/* Mobile shell (≤760px): spotlight the header Help — map FAB fights the bottom nav */
+@media (max-width: 760px) {
   .map-help-btn {
     left: auto;
     right: 12px;
     bottom: calc(var(--mobile-nav-h, 56px) + 12px);
   }
 
-  /* Prefer the floating map help control on small screens */
-  .dashboard-topbar .help-link.help-spotlight {
-    animation: none;
-    box-shadow: var(--shadow-sm);
-    border-color: var(--border-strong) !important;
-    color: var(--text-dim) !important;
-  }
-
-  .dashboard-topbar .help-link.help-spotlight .help-spotlight__tip {
-    display: none;
-  }
-}
-
-@media (min-width: 641px) {
-  /* Prefer the header Help control on larger screens */
   .map-help-btn.help-spotlight {
     animation: none;
     box-shadow: var(--shadow-sm);
@@ -2291,6 +2277,68 @@ body.pin-drop-focus .map-help-btn {
 
   .map-help-btn.help-spotlight .help-spotlight__tip {
     display: none;
+  }
+
+  .dashboard-topbar .help-link.help-spotlight {
+    overflow: visible;
+  }
+
+  /* Keep tip inside the topbar row so map overflow:hidden cannot clip it */
+  .dashboard-topbar .help-link.help-spotlight .help-spotlight__tip {
+    top: 50%;
+    left: auto;
+    right: calc(100% + 10px);
+    bottom: auto;
+    transform: translateY(-50%);
+    max-width: min(200px, calc(100vw - 120px));
+  }
+
+  .dashboard-topbar .help-link.help-spotlight .help-spotlight__tip::before {
+    top: 50%;
+    bottom: auto;
+    left: 100%;
+    right: auto;
+    transform: translateY(-50%);
+    border: 7px solid transparent;
+    border-left-color: #ef4444;
+    border-bottom-color: transparent;
+  }
+
+  .dashboard-topbar .help-link.help-spotlight .help-spotlight__tip::after {
+    top: 50%;
+    bottom: auto;
+    left: 100%;
+    right: auto;
+    transform: translateY(-50%);
+    margin: 0;
+    margin-left: -2px;
+    border: 5px solid transparent;
+    border-left-color: #fff;
+    border-bottom-color: transparent;
+  }
+
+  [data-theme="light"] .dashboard-topbar .help-link.help-spotlight .help-spotlight__tip::after {
+    border-left-color: #0f172a;
+  }
+}
+
+@media (min-width: 761px) {
+  /* Desktop: prefer the header Help control */
+  .map-help-btn.help-spotlight {
+    animation: none;
+    box-shadow: var(--shadow-sm);
+    border-color: var(--border-strong) !important;
+    color: var(--text-dim) !important;
+  }
+
+  .map-help-btn.help-spotlight .help-spotlight__tip {
+    display: none;
+  }
+
+  .dashboard-topbar .help-link.help-spotlight .help-spotlight__tip {
+    left: 50%;
+    right: auto;
+    transform: translateX(-50%);
   }
 }
 
