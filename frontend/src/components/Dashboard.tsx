@@ -47,6 +47,7 @@ import LiveActivityFeed from "./LiveActivityFeed";
 import { useMobileNav } from "../lib/MobileNavContext";
 import { MOBILE_BREAKPOINT, useMediaQuery } from "../lib/useMediaQuery";
 import { useDistanceSystem } from "../lib/useDistanceSystem";
+import { useHelpSpotlight } from "../hooks/useHelpSpotlight";
 import {
   displayValueToMeters,
   formatDistance,
@@ -162,6 +163,7 @@ function resolveNoCrisisNearbyNotice(
 
 export default function Dashboard() {
   const { t } = useTranslation();
+  const helpSpotlight = useHelpSpotlight(true);
   const navigate = useNavigate();
   const { reportId: sharedReportId } = useParams<{ reportId?: string }>();
   const [viewport, setViewport] = useState<MapViewport>({
@@ -826,6 +828,7 @@ export default function Dashboard() {
       <DashboardHeader
         onRailToggle={() => setRailOpen((open) => !open)}
         onFeedToggle={() => setFeedOpen((open) => !open)}
+        helpSpotlight={helpSpotlight}
       />
 
       <aside className={`dashboard-rail${railPanelOpen ? " open" : ""}`}>
@@ -1058,11 +1061,17 @@ export default function Dashboard() {
 
           <Link
             to="/help"
-            className="map-help-btn"
+            className={`map-help-btn${helpSpotlight ? " help-spotlight" : ""}`}
             title={t("nav.mapHelp")}
             aria-label={t("nav.mapHelp")}
+            aria-describedby={helpSpotlight ? "help-spotlight-tip-map" : undefined}
           >
             <CircleHelp strokeWidth={2} aria-hidden />
+            {helpSpotlight ? (
+              <span id="help-spotlight-tip-map" className="help-spotlight__tip" role="tooltip">
+                {t("nav.helpSpotlight")}
+              </span>
+            ) : null}
           </Link>
         </div>
       </main>

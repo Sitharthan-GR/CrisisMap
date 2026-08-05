@@ -11,14 +11,14 @@ import ThemeToggle from "./ThemeToggle";
 type HelpTab = "legend" | "guide" | "performance";
 
 const TABS: { id: HelpTab; labelKey: string }[] = [
-  { id: "legend", labelKey: "help.tabLegend" },
   { id: "guide", labelKey: "help.tabGuide" },
+  { id: "legend", labelKey: "help.tabLegend" },
   { id: "performance", labelKey: "help.tabPerformance" },
 ];
 
 export default function MapHelpPage() {
   const { t } = useTranslation();
-  const [tab, setTab] = useState<HelpTab>("legend");
+  const [tab, setTab] = useState<HelpTab>("guide");
 
   return (
     <div className="map-help-shell">

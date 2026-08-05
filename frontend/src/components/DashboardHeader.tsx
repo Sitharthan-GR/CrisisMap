@@ -18,11 +18,13 @@ import ThemeToggle from "./ThemeToggle";
 interface DashboardHeaderProps {
   onRailToggle: () => void;
   onFeedToggle: () => void;
+  helpSpotlight?: boolean;
 }
 
 export default function DashboardHeader({
   onRailToggle,
   onFeedToggle,
+  helpSpotlight = false,
 }: DashboardHeaderProps) {
   const { t } = useTranslation();
 
@@ -62,9 +64,19 @@ export default function DashboardHeader({
 
       <LanguageSwitcher className="lang" variant="button" />
       <ThemeToggle />
-      <Link to="/help" className="btn btn-sm help-link" title={t("nav.mapHelp")}>
+      <Link
+        to="/help"
+        className={`btn btn-sm help-link${helpSpotlight ? " help-spotlight" : ""}`}
+        title={t("nav.mapHelp")}
+        aria-describedby={helpSpotlight ? "help-spotlight-tip" : undefined}
+      >
         <CircleHelp strokeWidth={2} />
         <span className="help-link__label">{t("nav.mapHelp")}</span>
+        {helpSpotlight ? (
+          <span id="help-spotlight-tip" className="help-spotlight__tip" role="tooltip">
+            {t("nav.helpSpotlight")}
+          </span>
+        ) : null}
       </Link>
       <Link to="/admin" className="btn btn-sm admin">
         <Shield strokeWidth={2} />

@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import DemoVideoPlayer from "./DemoVideoPlayer";
+import MobileTutorial from "./MobileTutorial";
 
 type GuideStep = {
   titleKey: string;
@@ -52,6 +53,8 @@ export default function HowToUseGuide() {
           {t("nav.admin")}
         </Link>
       </div>
+
+      <MobileTutorial />
 
       <DemoVideoPlayer />
 
