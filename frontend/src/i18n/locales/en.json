@@ -15,6 +15,7 @@
     "helpSpotlight": "Tap for a quick tutorial",
     "refresh": "Refresh",
     "admin": "Admin",
+    "adminMobileHint": "Admin works best on desktop web",
     "backToDashboard": "Back to dashboard"
   },
   "help": {
@@ -443,6 +444,7 @@
     "pageSubtitle": "Manage crises, response status, and incoming damage reports.",
     "subtitle": "Manage crises and response status",
     "loginSubtitle": "Sign in to manage crises",
+    "mobileWebHint": "The admin portal works best on a desktop or laptop browser. Use a larger screen for creating crises, triage, and exports.",
     "demoPasswordHint": "Demo password:",
     "demoPassword": "admin123",
     "passwordLabel": "Admin password",

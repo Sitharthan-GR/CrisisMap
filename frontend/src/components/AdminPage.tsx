@@ -40,6 +40,15 @@ import UnlistedReportsPanel from "./UnlistedReportsPanel";
 
 type AdminView = "crises" | "unlisted";
 
+function AdminMobileWebHint() {
+  const { t } = useTranslation();
+  return (
+    <p className="admin-mobile-web-hint" role="note">
+      {t("admin.mobileWebHint")}
+    </p>
+  );
+}
+
 function toIsoUtcFromLocal(value: string): string {
   return new Date(value).toISOString();
 }
@@ -314,6 +323,8 @@ export default function AdminPage() {
           </Link>
         </header>
 
+        <AdminMobileWebHint />
+
         <div className="admin-login-wrap">
           <form className="admin-login-card" onSubmit={(e) => void handleLogin(e)}>
             <h1 style={{ margin: "0 0 4px", fontSize: 22, fontWeight: 800 }}>
@@ -426,6 +437,8 @@ export default function AdminPage() {
           {t("admin.signOut")}
         </button>
       </header>
+
+      <AdminMobileWebHint />
 
       <main className="admin-page">
         <div className="admin-page-head">

@@ -78,7 +78,11 @@ export default function DashboardHeader({
           </span>
         ) : null}
       </Link>
-      <Link to="/admin" className="btn btn-sm admin" title={t("nav.admin")}>
+      <Link
+        to="/admin"
+        className="btn btn-sm admin"
+        title={t("nav.adminMobileHint")}
+      >
         <Shield strokeWidth={2} />
         <span className="admin__label">{t("nav.admin")}</span>
       </Link>
