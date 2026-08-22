@@ -1423,9 +1423,26 @@ body.pin-drop-focus .map-help-btn {
     padding: 0 14px;
   }
 
-  .dashboard-topbar .lang,
-  .dashboard-topbar .admin {
+  .dashboard-topbar .lang {
     display: none;
+  }
+
+  .dashboard-topbar .admin {
+    display: inline-flex;
+    width: 36px;
+    min-width: 36px;
+    height: 36px;
+    padding: 0;
+    border-radius: 10px;
+  }
+
+  .dashboard-topbar .admin .admin__label {
+    display: none;
+  }
+
+  .dashboard-topbar .admin svg {
+    width: 16px;
+    height: 16px;
   }
 
   .rd-overlay {

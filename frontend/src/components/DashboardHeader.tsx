@@ -78,9 +78,9 @@ export default function DashboardHeader({
           </span>
         ) : null}
       </Link>
-      <Link to="/admin" className="btn btn-sm admin">
+      <Link to="/admin" className="btn btn-sm admin" title={t("nav.admin")}>
         <Shield strokeWidth={2} />
-        {t("nav.admin")}
+        <span className="admin__label">{t("nav.admin")}</span>
       </Link>
       <Link to="/report" className="btn btn-primary btn-sm header-report">
         <Plus strokeWidth={2.2} />
