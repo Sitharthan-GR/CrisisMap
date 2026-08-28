@@ -1,6 +1,7 @@
 import { Link } from "react-router-dom";
 import { useTranslation } from "react-i18next";
 import DemoVideoPlayer from "./DemoVideoPlayer";
+import FormBuilderGuide from "./FormBuilderGuide";
 import MobileTutorial from "./MobileTutorial";
 
 type GuideStep = {
@@ -70,6 +71,7 @@ export default function HowToUseGuide() {
         {ADMIN_SECTIONS.map((section) => (
           <GuideSection key={section.titleKey} {...section} />
         ))}
+        <FormBuilderGuide />
       </section>
     </div>
   );
