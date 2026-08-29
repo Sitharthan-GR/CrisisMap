@@ -30,9 +30,22 @@ export function getCurrentTheme(): Theme {
   return document.documentElement.getAttribute("data-theme") === "light" ? "light" : "dark";
 }
 
+const CARTO_BASEMAP_HOST = "https://{s}.basemaps.cartocdn.com";
+
+function cartoBasemapUrl(style: string): string {
+  const base = `${CARTO_BASEMAP_HOST}/${style}/{z}/{x}/{y}{r}.png`;
+  const key = import.meta.env.VITE_CARTO_API_KEY?.trim();
+  if (!key) return base;
+  return `${base}?key=${encodeURIComponent(key)}`;
+}
+
 export function basemapUrlForTheme(theme: Theme): string {
   const variant = theme === "light" ? "light_all" : "dark_all";
-  return `https://{s}.basemaps.cartocdn.com/${variant}/{z}/{x}/{y}{r}.png`;
+  return cartoBasemapUrl(variant);
+}
+
+export function basemapAttribution(): string {
+  return '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>, &copy; <a href="https://carto.com/attributions">CARTO</a>';
 }
 
 export function useTheme(): Theme {

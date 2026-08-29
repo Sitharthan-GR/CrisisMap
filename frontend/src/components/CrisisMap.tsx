@@ -6,7 +6,7 @@ import type { MapFlyRequest, MapViewport } from "../types/crisis";
 import type { MapReportPin, Crisis } from "../types/report";
 import type { PickedMapLocation } from "../types/location";
 import { createReportMapIcon } from "../lib/mapMarkers";
-import { basemapUrlForTheme, useTheme } from "../lib/theme";
+import { basemapAttribution, basemapUrlForTheme, useTheme } from "../lib/theme";
 import BuildingFootprints, { type BuildingPick } from "./BuildingFootprints";
 import ReportMapOverlay from "./ReportMapOverlay";
 import "leaflet/dist/leaflet.css";
@@ -215,7 +215,7 @@ function BasemapTileLayer() {
   return (
     <TileLayer
       key={`basemap-${theme}-${noWrap ? "nowrap" : "wrap"}`}
-      attribution='&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+      attribution={basemapAttribution()}
       url={basemapUrlForTheme(theme)}
       noWrap={noWrap}
       maxNativeZoom={TILE_MAX_NATIVE_ZOOM}

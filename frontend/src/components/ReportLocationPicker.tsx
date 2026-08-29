@@ -11,6 +11,7 @@ import {
   useMapEvents,
 } from "react-leaflet";
 import { DEFAULT_CENTER } from "../lib/constants";
+import { basemapAttribution, basemapUrlForTheme } from "../lib/theme";
 import { shortAddress } from "../lib/address";
 import type { PlaceSearchResult } from "../api/client";
 
@@ -253,8 +254,8 @@ export default function ReportLocationPicker({
             zoomControl
           >
             <TileLayer
-              url="https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png"
-              attribution=""
+              url={basemapUrlForTheme("dark")}
+              attribution={basemapAttribution()}
             />
             {hasCoords && (
               <>
